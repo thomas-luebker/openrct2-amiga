@@ -191,6 +191,11 @@ struct PaintNodeStorage
         fixedPaintEntries.clear();
         dynamicPaintEntries.reset();
     }
+
+    size_t size() const
+    {
+        return fixedPaintEntries.size() + (dynamicPaintEntries.has_value() ? dynamicPaintEntries->size() : 0);
+    }
 };
 
 struct PaintSession : public PaintSessionCore
@@ -237,6 +242,7 @@ extern PaintSession gPaintSession;
 // type (0-7 = TileElementType), 8 = tile element setup as a whole, 9 = entity setup. Printed with the gfx trace line.
 extern uint32_t gPaintProfUs[10];
 extern uint32_t gPaintProfN[10];
+extern uint32_t gPaintSurfaceStat[4]; // surface paints, ground below target, tiles culled above target, entries added
 extern bool gPaintProfEnabled;
 #ifdef __amigaos__
     #include "../platform/AmigaTrace.h"

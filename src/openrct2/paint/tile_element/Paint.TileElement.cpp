@@ -33,6 +33,8 @@
 #include "Paint.Wall.h"
 #include "Segment.h"
 
+#include <climits>
+
 using namespace OpenRCT2;
 using namespace OpenRCT2::Drawing;
 
@@ -183,6 +185,10 @@ static void PaintTileElementBase(PaintSession& session, const CoordsXY& origCoor
         return;
 
     uint16_t maxHeight = 0;
+#ifdef __amigaos__
+    const SurfaceElement* surfaceElement = nullptr;
+    int32_t minBaseZ = INT32_MAX;
+#endif
     {
         const TileElement* element = tile_element;
         do
@@ -191,7 +197,13 @@ static void PaintTileElementBase(PaintSession& session, const CoordsXY& origCoor
             if (element->getType() == TileElementType::surface)
             {
                 maxHeight = std::max(maxHeight, static_cast<uint16_t>(element->asSurface()->getWaterHeight()));
+#ifdef __amigaos__
+                surfaceElement = element->asSurface();
+#endif
             }
+#ifdef __amigaos__
+            minBaseZ = std::min<int32_t>(minBaseZ, element->getBaseZ());
+#endif
         } while (!(element++)->isLastForTile());
     }
 
@@ -213,6 +225,35 @@ static void PaintTileElementBase(PaintSession& session, const CoordsXY& origCoor
 
     if (screenMinY - (maxHeight + 32) >= session.rt.WorldY() + session.rt.WorldHeight())
         return;
+
+#ifdef __amigaos__
+    // Amiga: tighten the "tile lies above the target" test made earlier, with the same 52 px slack. That test assumes
+    // the tile's content starts at z = 0; it actually starts at the lowest of the ground, the four neighbouring grounds
+    // (the cliff faces run down to them, or to the minimum land height at the map edge) and any element below ground
+    // (48 px allowed for sprites hung below their base, e.g. vertical tunnels). Terrain usually sits 100 px and more
+    // above z = 0, so a 32 px dirty strip used to paint several rows of tiles whose ground lies above it. The cheap
+    // own-ground test comes first; the neighbours are only looked up for candidates. OPENRCT2_NO_TILE_CULL for A/B.
+    static const bool tileCullOff = amiga_env_flag("OPENRCT2_NO_TILE_CULL") != 0;
+    if (!tileCullOff && surfaceElement != nullptr && !(session.ViewFlags & VIEWPORT_FLAG_CLIP_VIEW)
+        && screenMinY - surfaceElement->getBaseZ() + 52 <= session.rt.WorldY())
+    {
+        int32_t minZ = surfaceElement->getBaseZ();
+        if (minBaseZ < minZ)
+            minZ = minBaseZ - 48;
+        static constexpr CoordsXY kOrthogonal[4] = { { 32, 0 }, { 0, 32 }, { -32, 0 }, { 0, -32 } };
+        for (const auto& d : kOrthogonal)
+        {
+            const CoordsXY pos = session.MapPosition + d;
+            const SurfaceElement* n = MapIsLocationValid(pos) ? MapGetSurfaceElementAt(pos) : nullptr;
+            minZ = std::min<int32_t>(minZ, n != nullptr ? n->getBaseZ() : kMinimumLandZ);
+        }
+        if (screenMinY - minZ + 52 <= session.rt.WorldY())
+        {
+            gPaintSurfaceStat[2]++;
+            return;
+        }
+    }
+#endif
 
     session.SpritePosition.x = coords.x;
     session.SpritePosition.y = coords.y;

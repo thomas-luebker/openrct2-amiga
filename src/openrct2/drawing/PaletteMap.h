@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cassert>
 #include <cstdint>
 #include <span>
 
@@ -52,10 +53,28 @@ namespace OpenRCT2::Drawing
         {
         }
 
-        PaletteIndex& operator[](size_t index);
-        PaletteIndex operator[](size_t index) const;
+        // Called once per pixel by the remapping and blending blitters: keep these inline (the Amiga build has no
+        // link-time optimisation, so an out-of-line definition costs a call per pixel).
+        PaletteIndex& operator[](size_t index)
+        {
+            return _data[index];
+        }
+        PaletteIndex operator[](size_t index) const
+        {
+            return _data[index];
+        }
 
-        PaletteIndex Blend(PaletteIndex src, PaletteIndex dst) const;
+        PaletteIndex Blend(PaletteIndex src, PaletteIndex dst) const
+        {
+            const auto srcValue = static_cast<size_t>(src);
+            const auto dstValue = static_cast<size_t>(dst);
+#ifdef _DEBUG
+            assert(srcValue != 0);
+            assert(srcValue - 1 < _numMaps);
+            assert(dstValue < _mapLength);
+#endif
+            return _data[((srcValue - 1) * 256) + dstValue];
+        }
         void Copy(PaletteIndex dstIndex, const PaletteMap& src, PaletteIndex srcIndex, size_t length);
     };
 } // namespace OpenRCT2::Drawing

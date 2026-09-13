@@ -797,10 +797,17 @@ static std::optional<PaletteMap> FASTCALL GfxDrawSpriteGetPalette(ImageId imageI
     return paletteMap;
 }
 
+#ifdef __amigaos__
+uint32_t gDrawSpriteStat[4] = {}; // sprite draw calls, sprites reaching the blitter, clipped pixel area, remapped/blended
+#endif
+
 void FASTCALL GfxDrawSpriteSoftware(RenderTarget& rt, const ImageId imageId, const ScreenCoordsXY& spriteCoords)
 {
     if (imageId.HasValue())
     {
+#ifdef __amigaos__
+        gDrawSpriteStat[0]++;
+#endif
         auto palette = GfxDrawSpriteGetPalette(imageId);
         if (!palette)
         {
@@ -997,6 +1004,12 @@ void FASTCALL GfxDrawSpritePaletteSetSoftware(
     dest_pointer += (zoomLevel.ApplyInversedTo(rt.WorldWidth()) + rt.pitch) * dest_start_y + dest_start_x;
 
     DrawSpriteArgs args(imageId, paletteMap, *g1, source_start_x, source_start_y, width, height, dest_pointer);
+#ifdef __amigaos__
+    gDrawSpriteStat[1]++;
+    gDrawSpriteStat[2] += static_cast<uint32_t>(width * height);
+    if (imageId.HasPrimary() || imageId.IsBlended())
+        gDrawSpriteStat[3]++;
+#endif
     GfxSpriteToBuffer(rt, args);
 }
 

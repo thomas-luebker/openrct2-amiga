@@ -33,30 +33,6 @@ namespace OpenRCT2::Drawing
         return PaletteMap(_defaultPaletteMapping);
     }
 
-    PaletteIndex& PaletteMap::operator[](size_t index)
-    {
-        return _data[index];
-    }
-
-    PaletteIndex PaletteMap::operator[](size_t index) const
-    {
-        return _data[index];
-    }
-
-    PaletteIndex PaletteMap::Blend(PaletteIndex src, PaletteIndex dst) const
-    {
-        const auto srcValue = EnumValue(src);
-        const auto dstValue = EnumValue(dst);
-#ifdef _DEBUG
-        // src = 0 would be transparent so there is no blend palette for that, hence (src - 1)
-        assert(src != PaletteIndex::transparent);
-        assert(static_cast<size_t>(srcValue - 1) < _numMaps);
-        assert(static_cast<size_t>(dstValue) < _mapLength);
-#endif
-        auto idx = ((srcValue - 1) * 256) + dstValue;
-        return _data[idx];
-    }
-
     void PaletteMap::Copy(PaletteIndex dstIndex, const PaletteMap& src, PaletteIndex srcIndex, size_t length)
     {
         auto srcOffset = EnumValue(srcIndex);

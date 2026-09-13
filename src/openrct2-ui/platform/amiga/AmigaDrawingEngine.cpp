@@ -17,6 +17,7 @@
     #include <openrct2/drawing/X8DrawingEngine.h>
     #include <openrct2/interface/Viewport.h>
     #include <openrct2/interface/Window.h>
+    #include <openrct2/drawing/Drawing.Sprite.h>
     #include <openrct2/paint/Paint.h>
     #include <openrct2/platform/AmigaTrace.h>
     #include <openrct2/ui/UiContext.h>
@@ -146,6 +147,16 @@ public:
                         + std::to_string(gPaintProfN[i]);
                     gPaintProfUs[i] = gPaintProfN[i] = 0;
                 }
+                line += "; sprites " + std::to_string(gDrawSpriteStat[0]) + " drawn " + std::to_string(gDrawSpriteStat[1])
+                    + " (" + std::to_string(gDrawSpriteStat[3]) + " remapped/blended), " + std::to_string(gDrawSpriteStat[2] / 1000)
+                    + " kpx";
+                for (auto& v : gDrawSpriteStat)
+                    v = 0;
+                line += "; surfaces " + std::to_string(gPaintSurfaceStat[0]) + " (" + std::to_string(gPaintSurfaceStat[1])
+                    + " ground below target), tiles culled above target " + std::to_string(gPaintSurfaceStat[2]) + ", entries added "
+                    + std::to_string(gPaintSurfaceStat[3]);
+                for (auto& v : gPaintSurfaceStat)
+                    v = 0;
                 AMIGA_TRACE(line.c_str());
             }
             {
