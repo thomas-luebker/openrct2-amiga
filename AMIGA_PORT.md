@@ -21,8 +21,9 @@ Build instructions: `distribution/amiga/BUILDING.md`. Tester notes:
   FLAC are not built, so OpenRCT2's own music packs do not play; the RCT2
   `css*.dat` files do.
 
-Not done: mouse cursor shapes and clipboard (Intuition pointer only), the
-optional Ogg music packs, networking, scripting, hardware FPU builds.
+Not done: the optional Ogg music packs, networking, scripting. Cursor shapes
+(intuition pointerclass) and the text clipboard (clipboard.device, FTXT) exist
+since test17+; a hardware-FPU build variant is being tried.
 Memory: about 256 MB of Fast RAM in use.
 
 ## How the port is structured
