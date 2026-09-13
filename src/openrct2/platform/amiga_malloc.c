@@ -1,6 +1,7 @@
 /* Doug Lea's malloc (MIT-0) configured for AmigaOS/libnix: memory comes from AllocMem() in large steps,
  * every step is returned to the system when the program exits. Replaces libnix's flat-list malloc, whose
  * free() and malloc() walk every block (200-400 us per call with 40k blocks live). */
+#include <proto/dos.h>
 #include <proto/exec.h>
 #include <exec/memory.h>
 #include <stdlib.h>
@@ -47,7 +48,22 @@ static void amiga_heap_abort(void)
 
 static void* amiga_mmap(size_t s)
 {
-    unsigned long* p = (unsigned long*)AllocMem(s + 16, MEMF_ANY);
+    /* OPENRCT2_NO_BIGALLOC=1 keeps every block inside the never-trimmed heap (the behaviour up to test16), so a
+     * tester can flip the large-block path off without a different binary. Failing here makes dlmalloc fall back
+     * to MORECORE. */
+    static int checked = 0, off = 0;
+    unsigned long* p;
+    if (!checked)
+    {
+        char buf[8];
+        checked = 1;
+        off = GetVar((STRPTR) "OPENRCT2_NO_BIGALLOC", (STRPTR)buf, sizeof buf, 0) > 0;
+        if (off)
+            amiga_trace("heap: OPENRCT2_NO_BIGALLOC set, large blocks stay in the heap");
+    }
+    if (off)
+        return (void*)~(size_t)0; /* MFAIL */
+    p = (unsigned long*)AllocMem(s + 16, MEMF_ANY);
     if (p == NULL)
         return (void*)~(size_t)0; /* MFAIL */
     p[0] = s + 16;
