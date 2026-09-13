@@ -55,6 +55,11 @@ namespace OpenRCT2::Drawing
 
         // Called once per pixel by the remapping and blending blitters: keep these inline (the Amiga build has no
         // link-time optimisation, so an out-of-line definition costs a call per pixel).
+        const PaletteIndex* data() const
+        {
+            return _data.data();
+        }
+
         PaletteIndex& operator[](size_t index)
         {
             return _data[index];
