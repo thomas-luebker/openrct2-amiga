@@ -8,20 +8,21 @@
     #include <proto/exec.h>
     #include <string.h>
 
-    #define MAX_BUFFERS 12
+    #define MAX_BUFFERS 2      /* one playing, one queued behind it: all AHI supports (see amiga_audio_pump) */
+    #define MAX_FRAMES 16384   /* 743 ms at 22050 Hz per request */
+    #define MIN_FRAMES 1024
 
 static struct MsgPort* g_port = NULL;
 static struct AHIRequest* g_req[MAX_BUFFERS];
 static unsigned char* g_buf[MAX_BUFFERS];
 static int g_inflight[MAX_BUFFERS]; /* 1 while SendIO'd and not yet reaped */
 static int g_num = 0;
-static int g_bytes = 0;
+static int g_frames = 0;   /* frames the mixer is asked for per request (adaptive) */
 static int g_freq = 0;
 static int g_open = 0;
 static struct AHIRequest* g_last = NULL; /* most recently queued request, for ahir_Link */
 static unsigned g_written = 0, g_underruns = 0;
 static unsigned g_lastPumpMs = 0;
-static int g_target = 3; /* buffers kept in flight; grows when the main loop pumps rarely */
 extern unsigned amiga_ticks_ms(void);
 
 static void reap(int i)
@@ -60,11 +61,8 @@ int amiga_audio_available(void)
 int amiga_audio_open(int freq, int frames, int numBuffers)
 {
     int i;
+    (void)numBuffers;
     amiga_audio_close();
-    if (numBuffers < 2)
-        numBuffers = 2;
-    if (numBuffers > MAX_BUFFERS)
-        numBuffers = MAX_BUFFERS;
     g_port = CreateMsgPort();
     if (g_port == NULL)
         return 0;
@@ -83,8 +81,8 @@ int amiga_audio_open(int freq, int frames, int numBuffers)
         return 0;
     }
     g_open = 1;
-    g_num = numBuffers;
-    g_bytes = frames * 4; /* 16-bit stereo */
+    g_num = MAX_BUFFERS;
+    g_frames = frames < MIN_FRAMES ? MIN_FRAMES : frames > MAX_FRAMES ? MAX_FRAMES : frames;
     g_freq = freq;
     for (i = 0; i < g_num; i++)
     {
@@ -99,7 +97,7 @@ int amiga_audio_open(int freq, int frames, int numBuffers)
             /* Clone the opened request so every copy refers to the same device/unit. */
             memcpy(g_req[i], g_req[0], sizeof(struct AHIRequest));
         }
-        g_buf[i] = (unsigned char*)AllocVec(g_bytes, MEMF_PUBLIC | MEMF_CLEAR);
+        g_buf[i] = (unsigned char*)AllocVec(MAX_FRAMES * 4, MEMF_PUBLIC | MEMF_CLEAR);
         if (g_buf[i] == NULL)
         {
             amiga_audio_close();
@@ -110,10 +108,15 @@ int amiga_audio_open(int freq, int frames, int numBuffers)
     g_last = NULL;
     g_written = g_underruns = 0;
     g_lastPumpMs = 0;
-    g_target = 3;
     return 1;
 }
 
+/* ahi.device plays one request per channel and lets exactly one more wait behind it (ahir_Link); a third request
+ * linked to one that is itself still waiting never starts, and the chain is dead from then on (measured with
+ * spike/ahi/ahitest.c: of six linked requests only the first two ever complete, on the emulator and on real
+ * hardware alike). So this keeps at most two requests in flight and instead grows the request *length* when the
+ * main loop, which drives the mixer, comes by rarely: at 25 fps a request holds ~93 ms, at one frame per second
+ * ~740 ms, so the queued one still covers the gap. */
 int amiga_audio_pump(amiga_audio_fill_fn fill, void* user)
 {
     int i, filled = 0, busy = 0;
@@ -126,44 +129,46 @@ int amiga_audio_pump(amiga_audio_fill_fn fill, void* user)
             busy++;
     if (busy == 0 && g_written > 0)
         g_underruns++;
-    /* Adapt the queue depth to how often the main loop gets here: at 25 fps three buffers (~280 ms) are
-     * enough; at one frame per second the queue must hold that second, or the sound stutters. */
     {
         unsigned now = amiga_ticks_ms();
-        unsigned bufMs = g_freq ? (unsigned)((g_bytes / 4) * 1000UL / (unsigned)g_freq) : 93;
-        if (g_lastPumpMs != 0 && bufMs != 0)
+        if (g_lastPumpMs != 0 && g_freq > 0)
         {
-            int want = (int)((now - g_lastPumpMs) / bufMs) + 2;
-            if (want < 3)
-                want = 3;
-            if (want > g_num)
-                want = g_num;
-            if (want > g_target)
-                g_target = want;
-            else if (want < g_target - 2)
-                g_target--;
+            /* frames needed to bridge the interval between two pumps, with half a buffer of slack */
+            int want = (int)(((now - g_lastPumpMs) * (unsigned)g_freq) / 1000u) * 3 / 2;
+            if (want < MIN_FRAMES)
+                want = MIN_FRAMES;
+            if (want > MAX_FRAMES)
+                want = MAX_FRAMES;
+            if (want > g_frames)
+                g_frames = want;
+            else if (want < g_frames / 2)
+                g_frames -= g_frames / 8; /* shrink slowly: a short latency is nice, a gap is worse */
+            if (g_frames < MIN_FRAMES)
+                g_frames = MIN_FRAMES;
         }
         g_lastPumpMs = now;
     }
     for (i = 0; i < g_num; i++)
     {
         struct AHIRequest* r = g_req[i];
+        int bytes;
         if (g_inflight[i])
             continue;
-        if (busy >= g_target)
+        if (busy >= g_num)
             break;
         busy++;
-        fill(user, g_buf[i], g_bytes);
+        bytes = (g_frames & ~3) * 4;
+        fill(user, g_buf[i], bytes);
         r->ahir_Std.io_Message.mn_Node.ln_Pri = 0;
         r->ahir_Std.io_Command = CMD_WRITE;
         r->ahir_Std.io_Data = g_buf[i];
-        r->ahir_Std.io_Length = g_bytes;
+        r->ahir_Std.io_Length = bytes;
         r->ahir_Std.io_Offset = 0;
         r->ahir_Type = AHIST_S16S;
         r->ahir_Frequency = g_freq;
         r->ahir_Volume = 0x10000;  /* 1.0 */
         r->ahir_Position = 0x8000; /* centre */
-        r->ahir_Link = g_last;     /* gapless: play after the previous request */
+        r->ahir_Link = g_last;     /* gapless: play after the one in flight */
         SendIO((struct IORequest*)r);
         g_inflight[i] = 1;
         g_last = r;

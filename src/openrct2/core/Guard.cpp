@@ -32,6 +32,7 @@
 #include "Guard.hpp"
 #include "String.hpp"
 #include "StringBuilder.h"
+#include "../platform/AmigaTrace.h"
 
 #include <cassert>
 #include <cstdlib>
@@ -104,6 +105,10 @@ namespace OpenRCT2::Guard
             Console::Error::WriteLine(formattedMessage.c_str());
             _lastAssertMessage = std::make_optional(formattedMessage);
         }
+#ifdef __amigaos__
+        // The Amiga launcher only shows "failed return code 127" for an abort; put the reason into the trace file.
+        AMIGA_TRACE((std::string("guard: assertion failed, aborting: ") + formattedMessage).c_str());
+#endif
 
 #if DEBUG > 0
         Debug::Break();

@@ -177,6 +177,7 @@ void amiga_ui_close(void)
     {
         CloseScreen(s_screen);
         s_screen = NULL;
+        amiga_trace("ui: screen closed");
     }
 }
 
