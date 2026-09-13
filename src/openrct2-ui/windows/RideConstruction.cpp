@@ -1707,8 +1707,16 @@ namespace OpenRCT2::Ui::Windows
             widgetHeight = widget.height() - 2;
             if (ClipRenderTarget(clippedRT, rt, screenCoords, widgetWidth, widgetHeight))
             {
+#ifdef __amigaos__
+                // Amiga: painting the piece (a paint session over five temporary tiles) costs ~60 ms on a 68k and the
+                // window is redrawn often while building. Keep the last rendering in an offscreen buffer keyed by
+                // everything the painter reads, and blit it while the key is unchanged.
+                DrawTrackPieceCached(
+                    clippedRT, rideIndex, trackType, trackDirection, liftHillAndInvertedState, widgetWidth, widgetHeight);
+#else
                 DrawTrackPiece(
                     clippedRT, rideIndex, trackType, trackDirection, liftHillAndInvertedState, widgetWidth, widgetHeight);
+#endif
             }
 
             // Draw cost
@@ -2644,6 +2652,84 @@ namespace OpenRCT2::Ui::Windows
                 });
             auto res = GameActions::Execute(&rideEntranceExitPlaceAction, getGameState());
         }
+
+#ifdef __amigaos__
+        struct PreviewCache
+        {
+            std::vector<Drawing::PaletteIndex> pixels;
+            int32_t width = 0, height = 0;
+            RideId rideIndex{};
+            TrackElemType trackType{};
+            int32_t trackDirection = -1;
+            SelectedLiftAndInverted liftHillAndInvertedState{};
+            uint8_t rotation = 0;
+            RideColourScheme colourScheme{};
+            VehicleColourSettings colourSettings{};
+            ride_type_t rideType = 0;
+            TrackColour trackColours[kNumRideColourSchemes]{};
+            bool valid = false;
+        } _previewCache;
+
+        void DrawTrackPieceCached(
+            Drawing::RenderTarget& rt, RideId rideIndex, TrackElemType trackType, int32_t trackDirection,
+            SelectedLiftAndInverted liftHillAndInvertedState, int32_t widgetWidth, int32_t widgetHeight)
+        {
+            auto currentRide = GetRide(rideIndex);
+            if (currentRide == nullptr || rt.width != widgetWidth || rt.height != widgetHeight || widgetWidth <= 0
+                || widgetHeight <= 0)
+            {
+                DrawTrackPiece(rt, rideIndex, trackType, trackDirection, liftHillAndInvertedState, widgetWidth, widgetHeight);
+                return;
+            }
+            auto& c = _previewCache;
+            const uint8_t rotation = GetCurrentRotation();
+            bool same = c.valid && c.width == widgetWidth && c.height == widgetHeight && c.rideIndex == rideIndex
+                && c.trackType == trackType && c.trackDirection == trackDirection
+                && c.liftHillAndInvertedState == liftHillAndInvertedState && c.rotation == rotation
+                && c.colourScheme == _currentColourScheme && c.rideType == currentRide->type
+                && c.colourSettings == currentRide->vehicleColourSettings;
+            for (size_t i = 0; same && i < kNumRideColourSchemes; i++)
+                same = c.trackColours[i].main == currentRide->trackColours[i].main
+                    && c.trackColours[i].additional == currentRide->trackColours[i].additional
+                    && c.trackColours[i].supports == currentRide->trackColours[i].supports;
+            if (!same)
+            {
+                // Render into an offscreen target of the widget's size, then remember what it shows.
+                c.pixels.assign(static_cast<size_t>(widgetWidth) * widgetHeight, Drawing::PaletteIndex::transparent);
+                Drawing::RenderTarget off = rt;
+                off.bits = c.pixels.data();
+                off.x = 0;
+                off.y = 0;
+                off.width = widgetWidth;
+                off.height = widgetHeight;
+                off.pitch = 0;
+                // The widget background was already drawn into rt by drawWidgets; the preview only adds sprites, so
+                // start the offscreen copy from what is on screen now.
+                for (int32_t y = 0; y < widgetHeight; y++)
+                    std::memcpy(
+                        c.pixels.data() + static_cast<size_t>(y) * widgetWidth, rt.bits + static_cast<size_t>(y) * rt.LineStride(),
+                        widgetWidth);
+                DrawTrackPiece(off, rideIndex, trackType, trackDirection, liftHillAndInvertedState, widgetWidth, widgetHeight);
+                c.width = widgetWidth;
+                c.height = widgetHeight;
+                c.rideIndex = rideIndex;
+                c.trackType = trackType;
+                c.trackDirection = trackDirection;
+                c.liftHillAndInvertedState = liftHillAndInvertedState;
+                c.rotation = rotation;
+                c.colourScheme = _currentColourScheme;
+                c.rideType = currentRide->type;
+                c.colourSettings = currentRide->vehicleColourSettings;
+                for (size_t i = 0; i < kNumRideColourSchemes; i++)
+                    c.trackColours[i] = currentRide->trackColours[i];
+                c.valid = true;
+            }
+            for (int32_t y = 0; y < widgetHeight; y++)
+                std::memcpy(
+                    rt.bits + static_cast<size_t>(y) * rt.LineStride(), c.pixels.data() + static_cast<size_t>(y) * widgetWidth,
+                    widgetWidth);
+        }
+#endif
 
         void DrawTrackPiece(
             Drawing::RenderTarget& rt, RideId rideIndex, TrackElemType trackType, int32_t trackDirection,

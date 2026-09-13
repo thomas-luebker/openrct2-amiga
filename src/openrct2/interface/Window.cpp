@@ -120,9 +120,20 @@ static constexpr float kWindowScrollLocations[][2] = {
 
     void WindowUpdateAllViewports()
     {
+#ifdef __amigaos__
+        // Amiga: a window viewport that follows a vehicle (ride window, guest window) repaints its whole view every
+        // frame the vehicle moves; on a 68k that view costs 20-30 ms. Move such viewports every other frame; the
+        // main viewport keeps its per-frame update.
+        static uint32_t frame = 0;
+        frame++;
+#endif
         WindowVisitEach([&](WindowBase* w) {
             if (w->viewport != nullptr && w->isVisible)
             {
+#ifdef __amigaos__
+                if (w->classification != WindowClass::mainWindow && !w->viewportTargetSprite.IsNull() && (frame & 1))
+                    return;
+#endif
                 ViewportUpdatePosition(w);
             }
         });
