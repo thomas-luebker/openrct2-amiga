@@ -1,6 +1,6 @@
 # OpenRCT2 on AmigaOS 3.2 (68k) — tester guide
 
-*Build: test16. This is an early, unfinished port. You are testing it — thank you.*
+*Build: test17. This is an early, unfinished port. You are testing it — thank you.*
 
 OpenRCT2 is the open-source re-implementation of RollerCoaster Tycoon 2. This build is a
 big-endian port of the upstream C++20 engine to 68k AmigaOS, with an Intuition/RTG display
@@ -40,8 +40,8 @@ Example target: `Work:Games/RCT2/`.
 
 ## 2b. What to expect at the title screen
 
-The title screen tours the empty RCT2 beginner scenarios (Crazy Castle, Electric Fields, ...)
-instead of the large community parks the PC version shows: those need minutes to load and run at
+The title screen tours two empty RCT2 beginner scenarios (Crazy Castle and Amity Airfield, two minutes
+each) instead of the large community parks the PC version shows: those need minutes to load and run at
 one or two frames per second on a 68k. Reaching the title screen still takes a while (about half a
 minute on a fast machine) because an RCT2 scenario references some 600 objects that all have to be
 read from disk. Starting a scenario afterwards is much quicker, since most objects are already loaded.
