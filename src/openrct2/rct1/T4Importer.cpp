@@ -22,6 +22,22 @@
 #include "../sawyer_coding/SawyerChunkReader.h"
 
 #include <cassert>
+#include <algorithm>
+#include <bit>
+
+namespace
+{
+    // TD4 files are little-endian; the raw structs are read straight from the stream.
+    template<typename T>
+    void SwapLE(T& v)
+    {
+        if constexpr (std::endian::native == std::endian::big)
+        {
+            auto* b = reinterpret_cast<uint8_t*>(&v);
+            std::reverse(b, b + sizeof(T));
+        }
+    }
+} // namespace
 
 using namespace OpenRCT2;
 using namespace OpenRCT2::SawyerCoding;
@@ -124,6 +140,9 @@ namespace OpenRCT2::RCT1
             std::unique_ptr<TrackDesign> td = std::make_unique<TrackDesign>();
             TD4AA td4aa{};
             _stream.Read(&td4aa, sizeof(TD4AA));
+            SwapLE(td4aa.Flags);
+            SwapLE(td4aa.RideLength);
+            SwapLE(td4aa.UpkeepCost);
 
             for (int32_t i = 0; i < Limits::kNumColourSchemes; i++)
             {
@@ -146,6 +165,9 @@ namespace OpenRCT2::RCT1
             std::unique_ptr<TrackDesign> td = std::make_unique<TrackDesign>();
             TD4 td4{};
             _stream.Read(&td4, sizeof(TD4));
+            SwapLE(td4.Flags);
+            SwapLE(td4.RideLength);
+            SwapLE(td4.UpkeepCost);
             for (size_t i = 0; i < std::size(td->appearance.trackColours); i++)
             {
                 td->appearance.trackColours[i].main = GetColour(td4.TrackSpineColourV0);

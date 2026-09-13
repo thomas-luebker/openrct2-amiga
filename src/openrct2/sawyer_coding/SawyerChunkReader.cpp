@@ -18,8 +18,8 @@
 
 #ifdef __amigaos__
     #include "../platform/AmigaTrace.h"
-uint32_t gChunkStat[3] = {}; // chunk file read ms, decode ms, compressed bytes read
 #endif
+uint32_t gChunkStat[3] = {}; // chunk file read ms, decode ms, compressed bytes read (counted on the Amiga)
 
 namespace OpenRCT2::SawyerCoding
 {

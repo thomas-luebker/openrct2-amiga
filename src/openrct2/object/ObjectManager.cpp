@@ -601,10 +601,8 @@ namespace OpenRCT2
             const uint32_t tStart = Platform::GetTicks();
             for (auto& v : OpenRCT2::ObjectFactory::gLoadStat)
                 v = 0;
-#ifdef __amigaos__
             for (auto& v : gChunkStat)
                 v = 0;
-#endif
             std::vector<Object*> objects;
             std::vector<Object*> newLoadedObjects;
             std::vector<ObjectEntryDescriptor> badObjects;

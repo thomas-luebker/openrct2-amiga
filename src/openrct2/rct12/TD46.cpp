@@ -11,6 +11,7 @@
 
 #include "../ride/Track.h"
 #include "../ride/TrackDesign.h"
+#include <bit>
 
 namespace OpenRCT2::RCT12
 {
@@ -94,7 +95,10 @@ namespace OpenRCT2::RCT12
             TrackDesignMazeElement mazeElement{};
             mazeElement.location.x = td46MazeElement.x;
             mazeElement.location.y = td46MazeElement.y;
-            mazeElement.mazeEntry = td46MazeElement.mazeEntry;
+            // The 16-bit wall bitmap is little-endian in the file; its bytes also serve as direction/type above.
+            mazeElement.mazeEntry = std::endian::native == std::endian::big
+                ? static_cast<uint16_t>(td46MazeElement.direction | (td46MazeElement.type << 8))
+                : td46MazeElement.mazeEntry;
             td.mazeElements.push_back(mazeElement);
         }
     }

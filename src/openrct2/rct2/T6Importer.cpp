@@ -24,6 +24,22 @@
 #include "../sawyer_coding/SawyerChunkReader.h"
 
 #include <mutex>
+#include <algorithm>
+#include <bit>
+
+namespace
+{
+    // TD6 files are little-endian; the raw structs are read straight from the stream.
+    template<typename T>
+    void SwapLE(T& v)
+    {
+        if constexpr (std::endian::native == std::endian::big)
+        {
+            auto* b = reinterpret_cast<uint8_t*>(&v);
+            std::reverse(b, b + sizeof(T));
+        }
+    }
+} // namespace
 
 using namespace OpenRCT2;
 using namespace OpenRCT2::SawyerCoding;
@@ -108,6 +124,8 @@ namespace OpenRCT2::RCT2
             {
                 _stream.SetPosition(_stream.GetPosition() - 1);
                 _stream.Read(&t6EntranceElement, sizeof(TD6EntranceElement));
+                SwapLE(t6EntranceElement.x);
+                SwapLE(t6EntranceElement.y);
                 TrackDesignEntranceElement entranceElement{};
                 auto xy = CoordsXY(t6EntranceElement.x, t6EntranceElement.y);
                 auto z = (t6EntranceElement.z == -128) ? -1 : t6EntranceElement.z;
@@ -124,6 +142,8 @@ namespace OpenRCT2::RCT2
                 _stream.SetPosition(_stream.GetPosition() - 1);
                 TD6SceneryElement t6SceneryElement{};
                 _stream.Read(&t6SceneryElement, sizeof(TD6SceneryElement));
+                SwapLE(t6SceneryElement.SceneryObject.flags);
+                SwapLE(t6SceneryElement.SceneryObject.checksum);
                 TrackDesignSceneryElement sceneryElement{};
                 sceneryElement.sceneryObject = ObjectEntryDescriptor(t6SceneryElement.SceneryObject);
                 TileCoordsXYZ tileCoords = { t6SceneryElement.x, t6SceneryElement.y, t6SceneryElement.z };
@@ -172,6 +192,12 @@ namespace OpenRCT2::RCT2
             TD6Track td6{};
             // Rework td6 so that it is just the fields
             _stream.Read(&td6, 0xA3);
+            SwapLE(td6.Flags);
+            SwapLE(td6.RideLength);
+            SwapLE(td6.UpkeepCost);
+            SwapLE(td6.Flags2);
+            SwapLE(td6.VehicleObject.flags);
+            SwapLE(td6.VehicleObject.checksum);
 
             td->trackAndVehicle.rtdIndex = td6.Type; // 0x00
 

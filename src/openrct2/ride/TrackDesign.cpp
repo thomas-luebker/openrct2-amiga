@@ -9,6 +9,8 @@
 
 #include "TrackDesign.h"
 
+#include "../platform/AmigaTrace.h"
+
 #include "../Cheats.h"
 #include "../Context.h"
 #include "../Diagnostic.h"
@@ -2101,6 +2103,7 @@ void TrackDesignDrawPreview(TrackDesign& td, TrackDesignPreviewBuffer& pixels, b
     TrackDesignGameStateData updatedGameStateData = td.gameStateData;
     if (!TrackDesignPlacePreview(tds, td, &ride, updatedGameStateData, placeScenery))
     {
+        AMIGA_TRACE("track design preview: placement failed, preview left blank");
         std::fill(std::begin(pixels), std::end(pixels), PaletteIndex::transparent);
         UnstashMap();
         return;
@@ -2172,6 +2175,19 @@ void TrackDesignDrawPreview(TrackDesign& td, TrackDesignPreviewBuffer& pixels, b
     }
 
     drawingEngine->EndDraw();
+
+#ifdef __amigaos__
+    {
+        size_t drawn = 0;
+        for (auto px : pixels)
+            drawn += px != PaletteIndex::transparent;
+        AMIGA_TRACE((std::string("track design preview: rendered, ") + std::to_string(drawn) + " of " + std::to_string(pixels.size())
+                     + " pixels set, zoom " + std::to_string(static_cast<int>(static_cast<int8_t>(zoom_level))) + ", extent "
+                     + std::to_string(tds.previewMax.x - tds.previewMin.x) + "x" + std::to_string(tds.previewMax.y - tds.previewMin.y)
+                     + "x" + std::to_string(tds.previewMax.z - tds.previewMin.z))
+                        .c_str());
+    }
+#endif
 
     ride->remove();
     UnstashMap();

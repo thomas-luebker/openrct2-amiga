@@ -83,6 +83,4 @@ namespace OpenRCT2::SawyerCoding
     };
 } // namespace OpenRCT2::SawyerCoding
 
-#ifdef __amigaos__
-extern uint32_t gChunkStat[3]; // chunk file read ms, decode ms, compressed bytes read
-#endif
+extern uint32_t gChunkStat[3]; // chunk file read ms, decode ms, compressed bytes read (counted on the Amiga)
