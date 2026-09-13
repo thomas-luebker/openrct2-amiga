@@ -81,14 +81,22 @@ landscape underneath every open window and both bars was painted again on
 every scrolled frame; that cost more than half of the scrolling frame rate.
 Set solid_windows = false if you prefer the transparent look.
 
-2e. The second program file
+2e. The other program files
 ---------------------------
+bin/openrct2 is compiled for a 68020 without FPU and runs everywhere. Two
+variants sit next to it:
 
-bin/openrct2-o2 is the same program compiled for smaller code (-O2 instead of
--O3). On real 68060 and 68080 CPUs with their small caches it may run faster;
-on a PiStorm or an emulator it should make no difference. To try it, rename
-bin/openrct2 to bin/openrct2-o3 and bin/openrct2-o2 to bin/openrct2, then
-compare the fps counter in the same spot of the same park.
+ * bin/openrct2-o2: the same program compiled for smaller code (-O2 instead of
+   -O3). On real 68060 and 68080 CPUs with their small caches it may run
+   faster; on a PiStorm or an emulator it should make no difference.
+ * bin/openrct2-fpu: compiled for a 68060 with hardware floating point
+   (-m68060 -mhard-float). NEEDS AN FPU: 68040/68060 with FPU, PiStorm (Emu68),
+   Vampire/Apollo. It will not start on a 68040LC/68060LC or a plain
+   68020/030. The game avoids floating point in its hot paths, so the gain may
+   be small; we want to know what you measure.
+
+To try one, rename bin/openrct2 to bin/openrct2-020 and the variant to
+bin/openrct2, then compare the fps counter in the same spot of the same park.
 
 2f. Big parks and guest path finding
 ------------------------------------
