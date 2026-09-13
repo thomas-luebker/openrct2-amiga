@@ -11,8 +11,16 @@
 #define LACKS_SYS_MMAN_H 1
 #define LACKS_SCHED_H 1
 #define LACKS_TIME_H 1
-#define HAVE_MMAP 0
+/* Large blocks (>= 256 KB, dlmalloc's mmap threshold) come straight from exec and go back to it on free: the
+ * sbrk-style heap below can never be trimmed, so without this every big transient (autosave buffers, the track
+ * design preview map, file reads) would raise the footprint for good. The hidden header keeps the exact size
+ * FreeMem() needs; dlmalloc copes with any alignment of what MMAP returns. */
+#define HAVE_MMAP 1
 #define HAVE_MREMAP 0
+#define MMAP_CLEARS 0
+#define MMAP(s) amiga_mmap(s)
+#define MUNMAP(a, s) amiga_munmap((a), (s))
+#define DIRECT_MMAP(s) amiga_mmap(s)
 #define HAVE_MORECORE 1
 #define MORECORE amiga_morecore
 #define MORECORE_CONTIGUOUS 0
@@ -36,6 +44,23 @@ static void amiga_heap_abort(void)
 #define USAGE_ERROR_ACTION(m, p) amiga_heap_abort()
 #define CORRUPTION_ERROR_ACTION(m) amiga_heap_abort()
 #define USE_DL_PREFIX 1
+
+static void* amiga_mmap(size_t s)
+{
+    unsigned long* p = (unsigned long*)AllocMem(s + 16, MEMF_ANY);
+    if (p == NULL)
+        return (void*)~(size_t)0; /* MFAIL */
+    p[0] = s + 16;
+    return (char*)p + 16;
+}
+
+static int amiga_munmap(void* a, size_t s)
+{
+    unsigned long* p = (unsigned long*)((char*)a - 16);
+    (void)s;
+    FreeMem(p, p[0]);
+    return 0;
+}
 
 struct amiga_step { struct amiga_step* next; unsigned long size; };
 static struct amiga_step* g_steps = NULL;

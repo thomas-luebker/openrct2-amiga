@@ -1008,13 +1008,17 @@ namespace OpenRCT2
         // TODO: move function elsewhere?
         bool LoadBaseGraphics()
         {
+            AMIGA_TRACE("init: loading g1");
             if (!GfxLoadG1(*_env))
             {
                 return false;
             }
+            AMIGA_TRACE("init: g1 loaded, loading g2/palettes/fonts/tracks");
             GfxLoadG2PalettesFontsTracks();
+            AMIGA_TRACE("init: loading csg");
             GfxLoadCsg();
             FontSpriteInitialiseCharacters();
+            AMIGA_TRACE("init: base graphics loaded");
             return true;
         }
 

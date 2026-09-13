@@ -2190,7 +2190,13 @@ static void TrackDesignPreviewClearMap()
 
     // Reserve ~8 elements per tile
     std::vector<TileElement> tileElements;
+#ifdef __amigaos__
+    // Eight elements per tile of the largest possible map is 128 MB just to preview one track design; a design
+    // adds a few thousand elements at most, and the game reorganises the array when it runs out of room anyway.
+    tileElements.reserve(numTiles + 64 * 1024);
+#else
     tileElements.reserve(numTiles * 8);
+#endif
 
     for (int32_t i = 0; i < numTiles; i++)
     {
