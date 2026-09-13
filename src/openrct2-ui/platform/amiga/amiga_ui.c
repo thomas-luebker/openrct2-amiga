@@ -10,6 +10,7 @@
     #include <devices/inputevent.h>
     #include <graphics/displayinfo.h>
     #include <intuition/intuition.h>
+    #include <intuition/pointerclass.h>
     #include <intuition/screens.h>
     #include <proto/cybergraphics.h>
     #include <proto/dos.h>
@@ -36,6 +37,17 @@ static struct Window* s_window = NULL;
 static int s_width = 0, s_height = 0;
 static int s_mouseX = 0, s_mouseY = 0, s_buttons = 0;
 static ULONG s_palette[1 + 256 * 3 + 1];
+static Object* s_pointerObj = NULL;
+static struct BitMap* s_pointerBM = NULL;
+static int s_pointerShown = 1;
+
+static void free_pointer_shape(Object* obj, struct BitMap* bm)
+{
+    if (obj != NULL)
+        DisposeObject(obj);
+    if (bm != NULL)
+        FreeBitMap(bm);
+}
 
 static int open_libs(void)
 {
@@ -173,6 +185,9 @@ void amiga_ui_close(void)
         CloseWindow(s_window);
         s_window = NULL;
     }
+    free_pointer_shape(s_pointerObj, s_pointerBM);
+    s_pointerObj = NULL;
+    s_pointerBM = NULL;
     if (s_screen != NULL)
     {
         CloseScreen(s_screen);
@@ -415,15 +430,87 @@ int amiga_ui_mouse(int* x, int* y)
     return s_buttons;
 }
 
+/* ---- pointer shapes ------------------------------------------------------------------------------
+ * The game's tool cursors are 32x32 two-colour bitmaps; intuition's pointerclass (V39+) shows pointers up to
+ * 64 px wide. Pointer colour n (1..3) is screen pen 16+n, which on our 8-bit screen holds whatever the game
+ * palette has there, so the darkest of the three pens draws the black parts and the lightest the white parts. */
+
+static int pen_luma(int pen)
+{
+    ULONG r = s_palette[1 + pen * 3 + 0] >> 24, g = s_palette[1 + pen * 3 + 1] >> 24, b = s_palette[1 + pen * 3 + 2] >> 24;
+    return (int)(r * 3 + g * 6 + b);
+}
+
+int amiga_ui_set_pointer(const unsigned char* data, const unsigned char* mask, int w, int h, int hotX, int hotY)
+{
+    struct BitMap* bm;
+    Object* obj;
+    int x, y, blackPen = 2, whitePen = 1, bytesPerRow = (w + 7) / 8;
+    if (s_window == NULL || w <= 0 || h <= 0 || w > 64 || h > 64)
+        return 0;
+    {
+        int l1 = pen_luma(17), l2 = pen_luma(18), l3 = pen_luma(19);
+        blackPen = (l1 <= l2 && l1 <= l3) ? 1 : (l2 <= l3) ? 2 : 3;
+        whitePen = (l1 >= l2 && l1 >= l3) ? 1 : (l2 >= l3) ? 2 : 3;
+        if (whitePen == blackPen)
+            whitePen = blackPen == 1 ? 2 : 1;
+    }
+    bm = AllocBitMap(w, h, 2, BMF_CLEAR | BMF_DISPLAYABLE, NULL);
+    if (bm == NULL)
+        return 0;
+    for (y = 0; y < h; y++)
+    {
+        UBYTE* p0 = bm->Planes[0] + y * bm->BytesPerRow;
+        UBYTE* p1 = bm->Planes[1] + y * bm->BytesPerRow;
+        for (x = 0; x < w; x++)
+        {
+            int bit = 0x80 >> (x & 7);
+            int d = (data[y * bytesPerRow + x / 8] & bit) != 0, m = (mask[y * bytesPerRow + x / 8] & bit) != 0;
+            int pen = (m && d) ? blackPen : m ? whitePen : d ? blackPen : 0;
+            if (pen & 1)
+                p0[x / 8] |= bit;
+            if (pen & 2)
+                p1[x / 8] |= bit;
+        }
+    }
+    obj = NewObject(
+        NULL, (STRPTR) "pointerclass", POINTERA_BitMap, (ULONG)bm, POINTERA_XOffset, -hotX, POINTERA_YOffset, -hotY,
+        POINTERA_WordWidth, (ULONG)((w + 15) / 16), POINTERA_XResolution, POINTERXRESN_SCREENRES, POINTERA_YResolution,
+        POINTERYRESN_SCREENRES, TAG_DONE);
+    if (obj == NULL)
+    {
+        FreeBitMap(bm);
+        return 0;
+    }
+    if (s_pointerShown)
+        SetWindowPointer(s_window, WA_Pointer, (ULONG)obj, TAG_DONE);
+    free_pointer_shape(s_pointerObj, s_pointerBM); /* after the switch: intuition must not see it vanish first */
+    s_pointerObj = obj;
+    s_pointerBM = bm;
+    return 1;
+}
+
+void amiga_ui_reset_pointer(void)
+{
+    if (s_window != NULL && s_pointerShown)
+        SetWindowPointer(s_window, WA_Pointer, 0, TAG_DONE);
+    free_pointer_shape(s_pointerObj, s_pointerBM);
+    s_pointerObj = NULL;
+    s_pointerBM = NULL;
+}
+
 void amiga_ui_show_pointer(int show)
 {
     static UWORD blank[6] = { 0, 0, 0, 0, 0, 0 };
     if (s_window == NULL)
         return;
-    if (show)
-        ClearPointer(s_window);
-    else
+    s_pointerShown = show;
+    if (!show)
         SetPointer(s_window, blank, 1, 16, 0, 0);
+    else if (s_pointerObj != NULL)
+        SetWindowPointer(s_window, WA_Pointer, (ULONG)s_pointerObj, TAG_DONE);
+    else
+        ClearPointer(s_window);
 }
 
 int amiga_ui_request(const char* title, const char* body, const char* gadgets)

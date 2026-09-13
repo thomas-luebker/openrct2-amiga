@@ -6,6 +6,7 @@
 
     #include "AmigaWindow.h"
     #include "amiga_audio.h"
+    #include "amiga_clip.h"
     #include "amiga_ui.h"
 
 #include <openrct2/platform/AmigaTrace.h>
@@ -17,6 +18,7 @@
     #include <cstring>
     #include <deque>
     #include <string>
+    #include <vector>
 
 extern "C" unsigned amiga_ticks_ms(void);
 
@@ -829,41 +831,104 @@ void SDL_SetTextInputRect(const SDL_Rect*)
 {
 }
 
-// Cursors: the Intuition pointer stays; the game's cursor shapes are accepted and ignored for now.
+// Cursors: the game's 1-bit cursor shapes become intuition pointerclass pointers (amiga_ui_set_pointer); the
+// system cursors (arrow, hand) keep the user's preferred Workbench pointer.
 struct SDL_Cursor
 {
-    int id;
+    bool system = false;
+    std::vector<Uint8> data, mask;
+    int w = 0, h = 0, hotX = 0, hotY = 0;
 };
-SDL_Cursor* SDL_CreateCursor(const Uint8*, const Uint8*, int, int, int, int)
+static SDL_Cursor* g_currentCursor = nullptr;
+SDL_Cursor* SDL_CreateCursor(const Uint8* data, const Uint8* mask, int w, int h, int hotX, int hotY)
 {
-    return new SDL_Cursor{ 0 };
+    auto* c = new SDL_Cursor{};
+    const size_t bytes = static_cast<size_t>((w + 7) / 8) * h;
+    c->data.assign(data, data + bytes);
+    c->mask.assign(mask, mask + bytes);
+    c->w = w;
+    c->h = h;
+    c->hotX = hotX;
+    c->hotY = hotY;
+    return c;
 }
-SDL_Cursor* SDL_CreateSystemCursor(SDL_SystemCursor id)
+SDL_Cursor* SDL_CreateSystemCursor(SDL_SystemCursor)
 {
-    return new SDL_Cursor{ static_cast<int>(id) };
+    auto* c = new SDL_Cursor{};
+    c->system = true;
+    return c;
 }
-void SDL_SetCursor(SDL_Cursor*)
+void SDL_SetCursor(SDL_Cursor* cursor)
 {
+    if (cursor == nullptr || cursor == g_currentCursor)
+        return;
+    g_currentCursor = cursor;
+    if (cursor->system)
+        amiga_ui_reset_pointer();
+    else if (amiga_ui_set_pointer(cursor->data.data(), cursor->mask.data(), cursor->w, cursor->h, cursor->hotX, cursor->hotY))
+    {
+        AMIGA_TRACE_ONCE("ui: custom pointer shapes active (pointerclass)");
+    }
+    else
+    {
+        AMIGA_TRACE_ONCE("ui: pointerclass pointer could not be created, keeping the default pointer");
+        amiga_ui_reset_pointer();
+    }
 }
 void SDL_FreeCursor(SDL_Cursor* cursor)
 {
+    if (cursor == g_currentCursor)
+        g_currentCursor = nullptr;
     delete cursor;
 }
 
-int SDL_SetClipboardText(const char*)
+// Clipboard: clipboard.device unit 0, IFF FTXT. The game's text is UTF-8, the Amiga clipboard Latin-1.
+int SDL_SetClipboardText(const char* text)
 {
-    return -1;
+    if (text == nullptr)
+        return -1;
+    std::string latin;
+    for (const unsigned char* p = reinterpret_cast<const unsigned char*>(text); *p != 0;)
+    {
+        unsigned cp = *p, extra = 0;
+        if (cp >= 0xF0) { cp &= 0x07; extra = 3; }
+        else if (cp >= 0xE0) { cp &= 0x0F; extra = 2; }
+        else if (cp >= 0xC0) { cp &= 0x1F; extra = 1; }
+        p++;
+        for (; extra > 0 && (*p & 0xC0) == 0x80; extra--, p++)
+            cp = (cp << 6) | (*p & 0x3F);
+        latin += static_cast<char>(cp < 256 ? cp : '?');
+    }
+    return amiga_clip_write(latin.data(), static_cast<int>(latin.size())) ? 0 : -1;
 }
 char* SDL_GetClipboardText(void)
 {
-    char* s = static_cast<char*>(std::malloc(1));
-    if (s != nullptr)
-        *s = 0;
+    char latin[4096];
+    const int n = amiga_clip_read(latin, sizeof latin);
+    char* s = static_cast<char*>(std::malloc(static_cast<size_t>(n) * 2 + 1));
+    if (s == nullptr)
+        return nullptr;
+    {
+        char* o = s;
+        for (int i = 0; i < n; i++)
+        {
+            const unsigned char c = static_cast<unsigned char>(latin[i]);
+            if (c < 0x80)
+                *o++ = static_cast<char>(c);
+            else
+            {
+                *o++ = static_cast<char>(0xC0 | (c >> 6));
+                *o++ = static_cast<char>(0x80 | (c & 0x3F));
+            }
+        }
+        *o = 0;
+    }
     return s;
 }
 SDL_bool SDL_HasClipboardText(void)
 {
-    return SDL_FALSE;
+    char probe[4];
+    return amiga_clip_read(probe, sizeof probe) > 0 ? SDL_TRUE : SDL_FALSE;
 }
 
 int SDL_ShowMessageBox(const SDL_MessageBoxData* data, int* buttonid)

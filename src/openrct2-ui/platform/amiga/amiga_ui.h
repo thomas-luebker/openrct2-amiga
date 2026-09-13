@@ -49,6 +49,10 @@ int amiga_ui_map_key(int code, int qual, char* out, int outSize);
 /* Current pointer position (window relative) and button mask (bit0 left, bit1 middle, bit2 right). */
 int amiga_ui_mouse(int* x, int* y);
 void amiga_ui_show_pointer(int show);
+/* Custom pointer from 1-bit SDL-style data/mask rows (MSB first, (w+7)/8 bytes per row, w and h up to 64):
+ * data&mask = black, mask only = white, neither = transparent. Returns 1 when set. */
+int amiga_ui_set_pointer(const unsigned char* data, const unsigned char* mask, int w, int h, int hotX, int hotY);
+void amiga_ui_reset_pointer(void);
 
 /* EasyRequest with '|' separated gadgets; returns the pressed gadget index (0-based, left to right). */
 int amiga_ui_request(const char* title, const char* body, const char* gadgets);
