@@ -16,6 +16,11 @@
 
 #include <cstring>
 
+#ifdef __amigaos__
+    #include "../platform/AmigaTrace.h"
+uint32_t gChunkStat[3] = {}; // chunk file read ms, decode ms, compressed bytes read
+#endif
+
 namespace OpenRCT2::SawyerCoding
 {
     // Allow chunks to be uncompressed to a maximum of 16 MiB
@@ -67,12 +72,23 @@ namespace OpenRCT2::SawyerCoding
                 case ChunkEncoding::rotate:
                 {
                     auto compressedData = std::make_unique<uint8_t[]>(header.length);
+#ifdef __amigaos__
+                    const uint32_t tRead = amiga_ticks_us();
+#endif
                     if (_stream->TryRead(compressedData.get(), header.length) != header.length)
                     {
                         throw SawyerChunkException(kExceptionMessageCorruptChunkSize);
                     }
+#ifdef __amigaos__
+                    const uint32_t tDecode = amiga_ticks_us();
+                    gChunkStat[0] += (tDecode - tRead) / 1000;
+                    gChunkStat[2] += header.length;
+#endif
 
                     auto buffer = DecodeChunk(compressedData.get(), header);
+#ifdef __amigaos__
+                    gChunkStat[1] += (amiga_ticks_us() - tDecode) / 1000;
+#endif
                     if (buffer.GetLength() == 0)
                     {
                         throw SawyerChunkException(kExceptionMessageZeroSizedChunk);

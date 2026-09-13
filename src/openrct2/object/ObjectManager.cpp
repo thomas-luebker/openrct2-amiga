@@ -15,6 +15,7 @@
 #include "../Diagnostic.h"
 #include "../ParkImporter.h"
 #include "../platform/AmigaTrace.h"
+#include "../sawyer_coding/SawyerChunkReader.h"
 #include "../platform/Platform.h"
 #include "../audio/Audio.h"
 #include "../core/Console.hpp"
@@ -600,6 +601,10 @@ namespace OpenRCT2
             const uint32_t tStart = Platform::GetTicks();
             for (auto& v : OpenRCT2::ObjectFactory::gLoadStat)
                 v = 0;
+#ifdef __amigaos__
+            for (auto& v : gChunkStat)
+                v = 0;
+#endif
             std::vector<Object*> objects;
             std::vector<Object*> newLoadedObjects;
             std::vector<ObjectEntryDescriptor> badObjects;
@@ -698,7 +703,9 @@ namespace OpenRCT2
                          + " ms (factory call " + std::to_string(OpenRCT2::ObjectFactory::gLoadStat[4]) + " ms, load task "
                          + std::to_string(OpenRCT2::ObjectFactory::gLoadStat[5]) + " ms), Load() " + std::to_string(Platform::GetTicks() - tLoad) + " ms (of which "
                          + std::to_string(::gImageAllocStat[0]) + " images registered in " + std::to_string(::gImageAllocStat[1]) + " ms), "
-                         + std::to_string(OpenRCT2::ObjectFactory::gLoadStat[3] / 1024) + " KB decoded; legacy DAT loads "
+                         + std::to_string(OpenRCT2::ObjectFactory::gLoadStat[3] / 1024) + " KB decoded (chunk file reads "
+                         + std::to_string(gChunkStat[0]) + " ms for " + std::to_string(gChunkStat[2] / 1024) + " KB, RLE decode "
+                         + std::to_string(gChunkStat[1]) + " ms); legacy DAT loads "
                          + std::to_string(OpenRCT2::ObjectFactory::gLoadStat[0]) + ", json objects "
                          + std::to_string(OpenRCT2::ObjectFactory::gLoadStat[6]) + " (read+parse "
                          + std::to_string(OpenRCT2::ObjectFactory::gLoadStat[7]) + " ms, ReadJson "
