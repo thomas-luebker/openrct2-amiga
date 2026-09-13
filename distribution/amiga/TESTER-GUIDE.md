@@ -1,6 +1,6 @@
 # OpenRCT2 on AmigaOS 3.2 (68k) — tester guide
 
-*Build: test15. This is an early, unfinished port. You are testing it — thank you.*
+*Build: test16. This is an early, unfinished port. You are testing it — thank you.*
 
 OpenRCT2 is the open-source re-implementation of RollerCoaster Tycoon 2. This build is a
 big-endian port of the upstream C++20 engine to 68k AmigaOS, with an Intuition/RTG display
@@ -124,7 +124,7 @@ for exact PC behaviour, or lower (2000) if a big park still runs in slow motion.
 
 - **Sound and music play through AHI** (`ahi.device` unit 0). Install AHI (Aminet `mus/misc/ahiusr_4.18.lha`
   works on 3.2) and configure unit 0 in `Prefs/AHI` — Paula on a plain Amiga, or the Vampire/PiStorm
-  driver where one exists. Without AHI the game runs silently. Sound was verified by capturing the mixed stream on an emulator; real-hardware AHI playback is what this build needs testers for -- please report whether you hear the title music and clicks. Music needs the `css*.dat` files from
+  driver where one exists. Without AHI the game runs silently. Builds before test16 played only the first two audio buffers (a click and a fraction of a second of music, then silence): the driver queued more requests than ahi.device accepts. test16 double-buffers properly and plays continuously on the emulator; please report whether the title music keeps playing on your machine. Music needs the `css*.dat` files from
   your RCT2 `Data` folder; the optional OpenRCT2 music packs (OGG) are not supported yet.
 - **RollerCoaster Tycoon 1 scenarios (`.SC4`) play** and their simulation is bit-exact with the
   PC build. Rides that only exist in RCT1 use fallback RCT2 graphics unless you also own RCT1 and
