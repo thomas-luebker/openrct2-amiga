@@ -1,4 +1,4 @@
-OpenRCT2 for AmigaOS 3.2 (68k) -- tester build test17
+OpenRCT2 for AmigaOS 3.2 (68k) -- tester build test18
 =================================================
 
 This is an early test build of OpenRCT2, the open-source re-implementation of
