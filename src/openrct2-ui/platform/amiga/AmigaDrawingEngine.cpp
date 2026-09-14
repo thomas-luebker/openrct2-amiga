@@ -19,6 +19,9 @@
     #include <openrct2/interface/Window.h>
     #include <openrct2/drawing/Drawing.Sprite.h>
     #include <openrct2/paint/Paint.h>
+    #include <openrct2/world/Weather.h>
+    #include <openrct2/ride/TrackDesign.h>
+    #include <openrct2/GameState.h>
     #include <openrct2/platform/AmigaTrace.h>
     #include <openrct2/ui/UiContext.h>
 
@@ -76,12 +79,51 @@ public:
         amiga_ui_set_palette(rgb);
     }
 
+    // Rain and snow are painted over the whole main viewport after the windows, and the base engine restores the
+    // pixels underneath at the next BeginDraw. Neither pass marks dirty blocks, so with dirty-union blitting the
+    // drops only reached the screen where something else had changed (a tester saw rain animating in the left
+    // half of the view only). While weather is drawn, and for the frame that restores it, blit the whole screen.
+    bool _weatherDrawn = false;
+
+    static bool weatherIsDrawn()
+    {
+        if (!Config::Get().general.renderWeatherEffects || gTrackDesignSaveMode)
+            return false;
+        const auto* viewport = WindowGetViewport(WindowGetMain());
+        if (viewport != nullptr && (viewport->flags & VIEWPORT_FLAG_HIGHLIGHT_PATH_ISSUES))
+            return false;
+        return getGameState().weatherCurrent.level != Weather::Level::none;
+    }
+
+    void markWholeScreenDirty()
+    {
+        _dbX0 = 0;
+        _dbY0 = 0;
+        _dbX1 = static_cast<int32_t>(_width);
+        _dbY1 = static_cast<int32_t>(_height);
+    }
+
+    void PaintWeather() override
+    {
+        X8DrawingEngine::PaintWeather();
+        if (weatherIsDrawn())
+        {
+            markWholeScreenDirty();
+            _weatherDrawn = true;
+        }
+    }
+
     void BeginDraw() override
     {
         AMIGA_TRACE_ONCE("gfx: first BeginDraw");
         resetDirtyBox();
         _tBegin = amiga_ticks_ms();
         X8DrawingEngine::BeginDraw();
+        if (_weatherDrawn)
+        {
+            markWholeScreenDirty(); // the base class just restored the pixels under last frame's drops
+            _weatherDrawn = false;
+        }
     }
 
     void EndDraw() override
