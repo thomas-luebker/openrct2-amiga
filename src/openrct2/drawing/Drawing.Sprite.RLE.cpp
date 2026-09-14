@@ -15,6 +15,21 @@
 
 using namespace OpenRCT2::Drawing;
 
+#if defined(__amigaos__) || defined(OPENRCT2_RLE_FAST)
+    #ifdef __amigaos__
+extern "C" int amiga_env_flag(const char* name);
+static bool amiga_rle_fast_off()
+{
+    return amiga_env_flag("OPENRCT2_NO_RLE_FAST") != 0;
+}
+    #else
+static bool amiga_rle_fast_off()
+{
+    return false;
+}
+    #endif
+#endif
+
 template<DrawBlendOp TBlendOp>
 static void FASTCALL DrawRLESpriteMagnify(RenderTarget& rt, const DrawSpriteArgs& args)
 {
@@ -143,6 +158,20 @@ static void FASTCALL DrawRLESpriteMinify(RenderTarget& rt, const DrawSpriteArgs&
 #if defined(__amigaos__) || defined(OPENRCT2_RLE_FAST) // OPENRCT2_RLE_FAST: spike/rle/harness.cpp checks it natively
             else if constexpr (TBlendOp == (kBlendTransparent | kBlendSrc) && TZoom == 0)
             {
+                // OPENRCT2_NO_RLE_FAST=1 falls back to the generic per-pixel loop (bisecting a freeze on Emu68).
+                static const bool fastOff = amiga_rle_fast_off();
+                if (fastOff)
+                {
+                    auto& paletteMap = args.PalMap;
+                    while (numPixels > 0)
+                    {
+                        BlitPixel<TBlendOp>(reinterpret_cast<PaletteIndex*>(src), dst, paletteMap);
+                        numPixels -= zoom;
+                        src += zoom;
+                        dst++;
+                    }
+                    continue;
+                }
                 // Remapped sprites (anything with a primary colour: guests, vehicles, most scenery) are half of all
                 // sprites drawn. An RLE run holds no transparent source pixels (the plain path memcpys it), so only
                 // the remapped value needs the transparency test; four pixels per iteration keeps the loop overhead
