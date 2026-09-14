@@ -756,11 +756,7 @@ static inline void PaintAttachedPS(RenderTarget& rt, PaintStruct* ps, uint32_t v
         }
         else
         {
-#ifdef __amigaos__
-            GfxDrawSpriteSoftware(rt, imageId, screenCoords); // the only engine on the Amiga; skips two virtual hops
-#else
             GfxDrawSprite(rt, imageId, screenCoords);
-#endif
         }
     }
 }
@@ -788,11 +784,7 @@ static inline void PaintDrawStruct(PaintSession& session, PaintStruct* ps)
     }
     else
     {
-#ifdef __amigaos__
-        GfxDrawSpriteSoftware(session.rt, imageId, screenPos); // the only engine on the Amiga; skips two virtual hops
-#else
         GfxDrawSprite(session.rt, imageId, screenPos);
-#endif
     }
 
     if (ps->Children != nullptr)

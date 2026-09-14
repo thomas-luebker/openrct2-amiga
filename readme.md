@@ -31,7 +31,7 @@ threads, soft float, big-endian. It is a fork; upstream declined to merge it, so
   Intuition. About 25 fps at 640×480 on an emulated 68040; PiStorm and Vampire are faster.
 - **Sound and music** through `ahi.device`: the RCT2 sound bank and `css*.dat` music. OpenRCT2's own
   Ogg music packs are not supported (no Vorbis decoder in this build).
-- Not yet: mouse cursor shapes and clipboard, networking, scripting, hardware-FPU builds.
+- Not yet: networking, scripting. Mouse cursor shapes and the text clipboard arrived after test17 (untested on real hardware); a hardware-FPU build is being tried.
 
 ## Requirements
 

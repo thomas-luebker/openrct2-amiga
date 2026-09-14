@@ -60,26 +60,11 @@ namespace OpenRCT2::Drawing
             return _data.data();
         }
 
-        PaletteIndex& operator[](size_t index)
-        {
-            return _data[index];
-        }
-        PaletteIndex operator[](size_t index) const
-        {
-            return _data[index];
-        }
+        // test22 bisect: back out of line, as in test14 (the inline versions were part of test15).
+        PaletteIndex& operator[](size_t index);
+        PaletteIndex operator[](size_t index) const;
 
-        PaletteIndex Blend(PaletteIndex src, PaletteIndex dst) const
-        {
-            const auto srcValue = static_cast<size_t>(src);
-            const auto dstValue = static_cast<size_t>(dst);
-#ifdef _DEBUG
-            assert(srcValue != 0);
-            assert(srcValue - 1 < _numMaps);
-            assert(dstValue < _mapLength);
-#endif
-            return _data[((srcValue - 1) * 256) + dstValue];
-        }
+        PaletteIndex Blend(PaletteIndex src, PaletteIndex dst) const;
         void Copy(PaletteIndex dstIndex, const PaletteMap& src, PaletteIndex srcIndex, size_t length);
     };
 } // namespace OpenRCT2::Drawing
