@@ -48,20 +48,21 @@ static void amiga_heap_abort(void)
 
 static void* amiga_mmap(size_t s)
 {
-    /* OPENRCT2_NO_BIGALLOC=1 keeps every block inside the never-trimmed heap (the behaviour up to test16), so a
-     * tester can flip the large-block path off without a different binary. Failing here makes dlmalloc fall back
-     * to MORECORE. */
-    static int checked = 0, off = 0;
+    /* Off by default since test19: a tester saw garbled text with test17, the first build that returned large
+     * blocks to the system, and the cause is not found yet. OPENRCT2_BIGALLOC=1 enables the path (footprint
+     * ~55 MB lower on the title screen, big transients returned at once); failing here makes dlmalloc fall
+     * back to MORECORE, i.e. the behaviour up to test16. */
+    static int checked = 0, on = 0;
     unsigned long* p;
     if (!checked)
     {
         char buf[8];
         checked = 1;
-        off = GetVar((STRPTR) "OPENRCT2_NO_BIGALLOC", (STRPTR)buf, sizeof buf, 0) > 0;
-        if (off)
-            amiga_trace("heap: OPENRCT2_NO_BIGALLOC set, large blocks stay in the heap");
+        on = GetVar((STRPTR) "OPENRCT2_BIGALLOC", (STRPTR)buf, sizeof buf, 0) > 0;
+        amiga_trace(on ? "heap: OPENRCT2_BIGALLOC set, large blocks come from exec and go back on free"
+                       : "heap: large blocks stay in the heap (set OPENRCT2_BIGALLOC=1 to return them to the system)");
     }
-    if (off)
+    if (!on)
         return (void*)~(size_t)0; /* MFAIL */
     p = (unsigned long*)AllocMem(s + 16, MEMF_ANY);
     if (p == NULL)

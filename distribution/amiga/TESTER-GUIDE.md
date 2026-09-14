@@ -1,6 +1,6 @@
 # OpenRCT2 on AmigaOS 3.2 (68k) — tester guide
 
-*Build: test18. This is an early, unfinished port. You are testing it — thank you.*
+*Build: test19. This is an early, unfinished port. You are testing it — thank you.*
 
 OpenRCT2 is the open-source re-implementation of RollerCoaster Tycoon 2. This build is a
 big-endian port of the upstream C++20 engine to 68k AmigaOS, with an Intuition/RTG display
@@ -141,9 +141,9 @@ for exact PC behaviour, or lower (2000) if a big park still runs in slow motion.
 - Tool cursors (hand, bulldozer, path, ...) are shown through the OS pointer since test18; the text clipboard
   works in text boxes (Ctrl+C/X/V). Both are new and untested on real hardware: if the pointer looks wrong
   or the game misbehaves when a tool is selected, say so.
-- If text turns into garbage or question marks (reported once on a Vampire V4 with test17), start the game
-  once with `SetEnv OPENRCT2_NO_BIGALLOC 1` typed in the Shell first: that restores the test16 memory
-  behaviour. Tell us whether it makes a difference; it is the key clue.
+- test17 and test18 returned large freed memory blocks to the system at once; one tester saw garbled text
+  with that. Since test19 that path is off by default. Testers who want to help find the cause can switch it
+  on with `SetEnv OPENRCT2_BIGALLOC 1` in the Shell before starting and report whether text breaks.
 - Multiplayer, plugins and the scenario editor are untested.
 - The park load is CPU-bound (object loading, tile import); a real 68060 or PiStorm will be
   faster than the emulated 68040 the numbers above come from.
