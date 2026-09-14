@@ -1,7 +1,7 @@
 OPENRCT2 ON AMIGAOS 3.2 (68K) -- TESTER GUIDE
 =============================================
 
-Build: test19. This is an early, unfinished port. You are testing it -- thank
+Build: test20. This is an early, unfinished port. You are testing it -- thank
 you.
 
 OpenRCT2 is the open-source re-implementation of RollerCoaster Tycoon 2. This
@@ -170,7 +170,12 @@ Work:Games/RCT2/.)
 6. Known limitations of this build
 ----------------------------------
 
- * Sound and music play through AHI (ahi.device unit 0). Install AHI (Aminet
+ * Sound and music play through AHI (ahi.device unit 0). Since test20 playback
+   runs in its own process ("OpenRCT2 audio") exactly as the AHI autodocs
+   prescribe; builds test16 to test19 could freeze the whole machine on
+   PiStorm/Emu68 after a few seconds of sound. If a freeze still happens, start
+   once with  SetEnv OPENRCT2_NO_AUDIO 1  to confirm it is the sound path, and
+   send the trace. Install AHI (Aminet
    mus/misc/ahiusr_4.18.lha works on 3.2) and configure unit 0 in Prefs/AHI --
    Paula on a plain Amiga, or the Vampire/PiStorm driver where one exists.
    Without AHI the game runs silently. Builds before test16 played only the
