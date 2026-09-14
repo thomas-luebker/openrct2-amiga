@@ -137,6 +137,9 @@ for exact PC behaviour, or lower (2000) if a big park still runs in slow motion.
   works on 3.2) and configure unit 0 in `Prefs/AHI` — Paula on a plain Amiga, or the Vampire/PiStorm
   driver where one exists. Without AHI the game runs silently. Builds before test16 played only the first two audio buffers (a click and a fraction of a second of music, then silence): the driver queued more requests than ahi.device accepts. test16 double-buffers properly and plays continuously on the emulator; please report whether the title music keeps playing on your machine. Music needs the `css*.dat` files from
   your RCT2 `Data` folder; the optional OpenRCT2 music packs (OGG) are not supported yet.
+- **Freeze a few seconds into the title park (PiStorm/Emu68, builds test15 to test20):** test21 no longer walks
+  the whole heap every 100 frames unless a trace is written. Bisect switches, each `SetEnv` before starting:
+  `OPENRCT2_NO_HEAP_STATS 1`, `OPENRCT2_NO_RLE_FAST 1`, `OPENRCT2_NO_TILE_CULL 1`, `OPENRCT2_SKIP_ENTITIES 1`.
 - **RollerCoaster Tycoon 1 scenarios (`.SC4`) play** and their simulation is bit-exact with the
   PC build. Rides that only exist in RCT1 use fallback RCT2 graphics unless you also own RCT1 and
   set `rct1_path` in `user/config.ini` to its folder; the log line *"Park has objects which require
