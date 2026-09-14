@@ -1,7 +1,7 @@
 OPENRCT2 ON AMIGAOS 3.2 (68K) -- TESTER GUIDE
 =============================================
 
-Build: test22. This is an early, unfinished port. You are testing it -- thank
+Build: test23. This is an early, unfinished port. You are testing it -- thank
 you.
 
 OpenRCT2 is the open-source re-implementation of RollerCoaster Tycoon 2. This
@@ -186,7 +186,7 @@ Work:Games/RCT2/.)
    the css*.dat files from your RCT2 Data folder; the optional OpenRCT2 music
    packs (OGG) are not supported yet.
  * Freeze a few seconds into the title park (PiStorm/Emu68, builds test15 to
-   test21): test22 has the test14 path finder back and no longer walks the heap unless a
+   test22): test23 keeps the test14 path finder and no longer walks the heap unless a
    trace is written. Bisect switches, each SetEnv before starting:
    OPENRCT2_NO_HEAP_STATS 1, OPENRCT2_NO_RLE_FAST 1, OPENRCT2_NO_TILE_CULL 1,
    OPENRCT2_SKIP_ENTITIES 1.
