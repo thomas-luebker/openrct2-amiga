@@ -118,19 +118,24 @@ int amiga_program_path(char* buf, unsigned size)
  * Opt-in: the trace is written only when the environment variable OPENRCT2_TRACE names the file
  * (e.g. `SetEnv OPENRCT2_TRACE Work:OpenRCT2/trace.txt`). Off by default so a tester's build does not
  * pay thousands of Open() calls during the park load, nor leave a growing log behind. */
+static int s_traceEnabled = -1;
+static char s_tracePath[256];
+
+int amiga_trace_enabled(void)
+{
+    if (s_traceEnabled < 0)
+        s_traceEnabled = (GetVar((STRPTR) "OPENRCT2_TRACE", (STRPTR)s_tracePath, sizeof(s_tracePath), 0) > 0) ? 1 : 0;
+    return s_traceEnabled;
+}
+
 void amiga_trace(const char* line)
 {
     static unsigned t0 = 0;
-    static int enabled = -1;
-    static char path[256];
+    char* path = s_tracePath;
     char stamp[24];
     unsigned now;
     BPTR fh;
-    if (enabled < 0)
-    {
-        enabled = (GetVar((STRPTR) "OPENRCT2_TRACE", (STRPTR)path, sizeof(path), 0) > 0) ? 1 : 0;
-    }
-    if (!enabled)
+    if (!amiga_trace_enabled())
         return;
     now = amiga_ticks_ms();
     if (t0 == 0)

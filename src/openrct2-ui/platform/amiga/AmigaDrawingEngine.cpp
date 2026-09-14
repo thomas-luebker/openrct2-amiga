@@ -128,6 +128,10 @@ public:
                     .c_str());
             for (auto& v : gViewportPaintStat)
                 v = 0;
+            // The heap walk (dlmallinfo over every chunk) only when the line can be written; OPENRCT2_NO_HEAP_STATS
+            // skips it even then (bisecting a hang on Emu68 that appears a few seconds into a park).
+            static const bool heapStatsOff = amiga_env_flag("OPENRCT2_NO_HEAP_STATS") != 0;
+            if (amiga_trace_enabled() && !heapStatsOff)
             {
                 unsigned long footprint = 0, inUse = 0;
                 amiga_malloc_stats(&footprint, &inUse);
