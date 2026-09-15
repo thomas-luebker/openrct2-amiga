@@ -1,7 +1,7 @@
 OPENRCT2 ON AMIGAOS 3.2 (68K) -- TESTER GUIDE
 =============================================
 
-Build: test23. This is an early, unfinished port. You are testing it -- thank
+Build: test24. This is an early, unfinished port. You are testing it -- thank
 you.
 
 OpenRCT2 is the open-source re-implementation of RollerCoaster Tycoon 2. This
@@ -57,12 +57,11 @@ a CF card. Example target: Work:Games/RCT2/.
 
 The title screen tours two empty RCT2 beginner scenarios (Crazy Castle and
 Amity Airfield, two minutes each) instead of the large community parks the PC
-version shows:
-shows: those need minutes to load and run at one or two frames per second on a
-68k. Reaching the title screen still takes a while (about half a minute on a
-fast machine) because an RCT2 scenario references some 600 objects that all
-have to be read from disk. Starting a scenario afterwards is much quicker,
-since most objects are already loaded.
+version shows: those need minutes to load and run at one or two frames per
+second on a 68k. Reaching the title screen still takes a while (about half a
+minute on a fast machine) because an RCT2 scenario references some 600 objects
+that all have to be read from disk. Starting a scenario afterwards is much
+quicker, since most objects are already loaded.
 
 2c. Scrolling
 -------------
@@ -83,6 +82,7 @@ Set solid_windows = false if you prefer the transparent look.
 
 2e. The other program files
 ---------------------------
+
 bin/openrct2 is compiled for a 68020 without FPU and runs everywhere. Two
 variants sit next to it:
 
@@ -90,8 +90,8 @@ variants sit next to it:
    -O3). On real 68060 and 68080 CPUs with their small caches it may run
    faster; on a PiStorm or an emulator it should make no difference.
  * bin/openrct2-fpu: compiled for a 68060 with hardware floating point
-   (-m68060 -mhard-float). NEEDS AN FPU: 68040/68060 with FPU, PiStorm (Emu68),
-   Vampire/Apollo. It will not start on a 68040LC/68060LC or a plain
+   (-m68060 -mhard-float). Needs an FPU: 68040/68060 with FPU, PiStorm
+   (Emu68), Vampire/Apollo. It will not start on a 68040LC/68060LC or a plain
    68020/030. The game avoids floating point in its hot paths, so the gain may
    be small; we want to know what you measure.
 
@@ -109,6 +109,22 @@ per tick were 80% of the whole simulation. This build limits those searches to
 its goal is unaffected, only the fallback direction of a failed search can
 differ. Set it to 15000 for exact PC behaviour, or lower (2000) if a big park
 still runs in slow motion.
+
+Since test24 a big park stays usable even while the simulation is slow. One
+simulation tick in a park with a couple of thousand guests costs far more than
+a whole frame, and the game used to run up to four ticks back to back before
+drawing once, so the picture and the mouse froze for the length of four ticks:
+one tester's 2,000-guest park drew about one frame per second. The game now
+draws after every tick when a tick is that expensive. The park does not run
+any faster in game time, but you can see it and click in it: on the emulator a
+2,070-guest park went from 3 to 32 frames per second. Nothing about the
+simulation changed; every tick is a whole, ordinary tick.
+
+test24 also stopped measuring itself. Every guest was timed with two system-
+clock reads per tick whether or not you asked for a trace, which in that park
+is a quarter of a million clock reads a second, and a clock read on a PiStorm
+crosses the bus. The measurement now only runs while a trace is being written,
+which on the emulator took a quarter off the cost of a tick.
 
 3. Install the game
 -------------------
@@ -146,7 +162,13 @@ Work:Games/RCT2/.)
  * The first start builds an index of all game objects and scenarios into the
    user drawer. This takes 1-2 minutes on a 68040 and is much faster on every
    later start.
- * Loading the title screen takes 40-60 s on an emulated 68040.
+ * Loading the title screen takes about 30 s on an emulated 68040. test24
+   reads files the Amiga way rather than the way the C library suggested: the
+   directory scan asks AmigaDOS for name, size and date in one call per file
+   instead of six, the file buffer is 64 KB instead of 1 KB, and the stream no
+   longer asks AmigaDOS where it is before every single read. Reading the 35
+   MB of object data went from 2.0 s to 0.4 s, and the whole start from 40 s
+   to 31 s.
  * Then the title sequence plays (parks fly by) and the main menu appears in
    the middle: New Game, Load Game, Toolbox. Top-right: Options.
  * Expect ~25-30 fps at 640x480 on a fast machine.
@@ -173,23 +195,26 @@ Work:Games/RCT2/.)
  * Sound and music play through AHI (ahi.device unit 0). Since test20 playback
    runs in its own process ("OpenRCT2 audio") exactly as the AHI autodocs
    prescribe; builds test16 to test19 could freeze the whole machine on
-   PiStorm/Emu68 after a few seconds of sound. If a freeze still happens, start
-   once with  SetEnv OPENRCT2_NO_AUDIO 1  to confirm it is the sound path, and
-   send the trace. Install AHI (Aminet
-   mus/misc/ahiusr_4.18.lha works on 3.2) and configure unit 0 in Prefs/AHI --
-   Paula on a plain Amiga, or the Vampire/PiStorm driver where one exists.
-   Without AHI the game runs silently. Builds before test16 played only the
-   first two audio buffers (a click and a fraction of a second of music, then
-   silence): the driver queued more requests than ahi.device accepts. test16
-   double-buffers properly and plays continuously on the emulator; please
-   report whether the title music keeps playing on your machine. Music needs
-   the css*.dat files from your RCT2 Data folder; the optional OpenRCT2 music
-   packs (OGG) are not supported yet.
+   PiStorm/Emu68 after a few seconds of sound. If a freeze still happens,
+   start once with SetEnv OPENRCT2_NO_AUDIO 1 to confirm it is the sound path,
+   and send the trace. Install AHI (Aminet mus/misc/ahiusr_4.18.lha works on
+   3.2) and configure unit 0 in Prefs/AHI -- Paula on a plain Amiga, or the
+   Vampire/PiStorm driver where one exists. Without AHI the game runs
+   silently. Builds before test16 played only the first two audio buffers (a
+   click and a fraction of a second of music, then silence): the driver queued
+   more requests than ahi.device accepts. test16 double-buffers properly and
+   plays continuously on the emulator; please report whether the title music
+   keeps playing on your machine. Music needs the css*.dat files from your
+   RCT2 Data folder; the optional OpenRCT2 music packs (OGG) are not supported
+   yet.
  * Freeze a few seconds into the title park (PiStorm/Emu68, builds test15 to
-   test22): test23 keeps the test14 path finder and no longer walks the heap unless a
-   trace is written. Bisect switches, each SetEnv before starting:
-   OPENRCT2_NO_HEAP_STATS 1, OPENRCT2_NO_RLE_FAST 1, OPENRCT2_NO_TILE_CULL 1,
-   OPENRCT2_SKIP_ENTITIES 1.
+   test22): test23 keeps the test14 path finder back and no longer walks the
+   heap every 100 frames unless a trace is written. Bisect switches, each
+   SetEnv before starting: OPENRCT2_NO_HEAP_STATS 1, OPENRCT2_NO_RLE_FAST 1,
+   OPENRCT2_NO_TILE_CULL 1, OPENRCT2_SKIP_ENTITIES 1. test24 adds
+   OPENRCT2_NO_TICKCAP 1, which puts the frame loop back the way it was before
+   the change described in section 2f, in case the new one misbehaves on your
+   machine.
  * RollerCoaster Tycoon 1 scenarios (.SC4) play and their simulation is bit-
    exact with the PC build. Rides that only exist in RCT1 use fallback RCT2
    graphics unless you also own RCT1 and set rct1_path in user/config.ini to
@@ -202,7 +227,7 @@ Work:Games/RCT2/.)
  * test17 and test18 returned large freed memory blocks to the system at once;
    one tester saw garbled text with that. Since test19 that path is off by
    default. Testers who want to help find the cause can switch it on with
-   SetEnv OPENRCT2_BIGALLOC 1  in the Shell before starting and report whether
+   SetEnv OPENRCT2_BIGALLOC 1 in the Shell before starting and report whether
    text breaks.
  * Multiplayer, plugins and the scenario editor are untested.
  * The park load is CPU-bound (object loading, tile import); a real 68060 or
