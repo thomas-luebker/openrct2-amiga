@@ -1,6 +1,6 @@
 # OpenRCT2 on AmigaOS 3.2 (68k) — tester guide
 
-*Build: test24. This is an early, unfinished port. You are testing it — thank you.*
+*Build: test25. This is an early, unfinished port. You are testing it — thank you.*
 
 OpenRCT2 is the open-source re-implementation of RollerCoaster Tycoon 2. This build is a
 big-endian port of the upstream C++20 engine to 68k AmigaOS, with an Intuition/RTG display
@@ -132,6 +132,26 @@ is being written, which on the emulator took a quarter off the cost of a tick.
 - Then the title sequence plays (parks fly by) and the main menu appears in the middle:
   **New Game**, **Load Game**, **Toolbox**. Top-right: **Options**.
 - Expect **~25–30 fps at 640×480** on a fast machine.
+
+## 4b. The frame-rate counter
+
+`show_fps = true` in `user/config.ini` puts the frame rate at the top centre of the screen. In
+test24 and earlier it showed nothing at all, on every machine: a stray write inside the game
+clobbered one field of the screen's drawing state, and everything drawn straight to the screen
+rather than through a window was then skipped. test25 repairs that field every frame, so the
+counter is back. Note that deleting `config.ini` resets `show_fps` to false, so set it again
+afterwards.
+
+If your trace ever contains the line *"gfx: main render target origin was clobbered"*, that is the
+stray write happening on your machine; we would like to know, because we have not found what does
+it yet. It is harmless now.
+
+## 4c. Painting on one core
+
+Painting the view used worker threads by default, which the 68k machines this runs on cannot use:
+they have one core, so it only bought context switches. It is off by default since test25
+(`multithreading` in `user/config.ini`, also in the options window). On the emulator a
+2,070-guest park gained about a frame per second.
 
 ## 5. Playing
 
