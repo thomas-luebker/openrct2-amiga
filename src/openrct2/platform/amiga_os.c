@@ -10,6 +10,8 @@
     #include <proto/timer.h>
     #include <string.h>
 
+typedef void (*amiga_dir_cb)(void* ctx, const char* name, int isDir, unsigned long size, unsigned long mtime);
+
 /* libnix reads this at startup and swaps to a stack of this size; the CLI default is 4 KB. */
 unsigned long __stack = 8UL * 1024UL * 1024UL;
 
@@ -112,6 +114,32 @@ int amiga_program_path(char* buf, unsigned size)
     if (!AddPart(buf, name, size))
         return 0;
     return 1;
+}
+
+/* List one directory through Examine()/ExNext(): one DOS call per entry. The scandir()+stat() path libnix offers
+ * costs about six DOS calls per file (Lock, Examine, UnLock twice over), and the object index scans 2,500 files on
+ * every start. Directory entries have fib_DirEntryType > 0. The modification time is converted to Unix seconds. */
+void amiga_dir_scan(const char* path, amiga_dir_cb cb, void* ctx)
+{
+    BPTR lock = Lock((STRPTR)path, ACCESS_READ);
+    struct FileInfoBlock* fib;
+    if (lock == 0)
+        return;
+    fib = (struct FileInfoBlock*)AllocDosObject(DOS_FIB, NULL);
+    if (fib != NULL)
+    {
+        if (Examine(lock, fib) && fib->fib_DirEntryType > 0)
+        {
+            while (ExNext(lock, fib))
+            {
+                unsigned long mtime = (unsigned long)fib->fib_Date.ds_Days * 86400UL + 252460800UL
+                    + (unsigned long)fib->fib_Date.ds_Minute * 60UL + (unsigned long)fib->fib_Date.ds_Tick / 50UL;
+                cb(ctx, fib->fib_FileName, fib->fib_DirEntryType > 0, (unsigned long)fib->fib_Size, mtime);
+            }
+        }
+        FreeDosObject(DOS_FIB, fib);
+    }
+    UnLock(lock);
 }
 
 /* Append one line to a trace file, opening and closing it each time so it survives a wedged process.

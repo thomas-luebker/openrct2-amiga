@@ -35,6 +35,11 @@ namespace OpenRCT2
         bool _canWrite = false;
         bool _disposed = false;
         uint64_t _fileSize = 0;
+#ifdef __amigaos__
+        // libnix's ftell() is a DOS Seek() call, and Read() asked for the position before every fread(): tens of
+        // thousands of DOS calls per park load. The stream owns its FILE*, so it can track the position itself.
+        uint64_t _position = 0;
+#endif
 
     public:
         FileStream(const fs::path& path, FileMode fileMode);

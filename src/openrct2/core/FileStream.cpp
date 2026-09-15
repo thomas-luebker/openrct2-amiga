@@ -138,6 +138,11 @@ namespace OpenRCT2
     #endif
 #endif
 
+#ifdef __amigaos__
+        // libnix's default stdio buffer is 1 KB, i.e. one DOS Read() per KB; 64 KB cuts the call count 64-fold.
+        setvbuf(_file, nullptr, _IOFBF, 64 * 1024);
+        _position = (fileMode == FileMode::append) ? _fileSize : 0;
+#endif
         _ownsFilePtr = true;
     }
 
@@ -184,7 +189,11 @@ namespace OpenRCT2
         {
             return Platform::GetAssetPosition(_asset);
         }
+#ifdef __amigaos__
+        return _position;
+#else
         return ftello(_file);
+#endif
     }
 
     void FileStream::SetPosition(uint64_t position)
@@ -203,12 +212,21 @@ namespace OpenRCT2
         {
             case STREAM_SEEK_BEGIN:
                 fseeko(_file, offset, SEEK_SET);
+#ifdef __amigaos__
+                _position = static_cast<uint64_t>(offset);
+#endif
                 break;
             case STREAM_SEEK_CURRENT:
                 fseeko(_file, offset, SEEK_CUR);
+#ifdef __amigaos__
+                _position = static_cast<uint64_t>(static_cast<int64_t>(_position) + offset);
+#endif
                 break;
             case STREAM_SEEK_END:
                 fseeko(_file, offset, SEEK_END);
+#ifdef __amigaos__
+                _position = static_cast<uint64_t>(static_cast<int64_t>(_fileSize) + offset);
+#endif
                 break;
         }
     }
@@ -223,11 +241,21 @@ namespace OpenRCT2
             }
             throw IOException("Attempted to read past end of file.");
         }
+#ifdef __amigaos__
+        const size_t got = fread(buffer, 1, static_cast<size_t>(length), _file);
+        const uint64_t position = _position;
+        _position += got;
+        if (got == length)
+        {
+            return;
+        }
+#else
         uint64_t position = GetPosition();
         if (fread(buffer, 1, static_cast<size_t>(length), _file) == length)
         {
             return;
         }
+#endif
         char msg[256];
         std::snprintf(
             msg, sizeof(msg),
@@ -247,6 +275,9 @@ namespace OpenRCT2
             return;
         }
         uint64_t position = GetPosition();
+#ifdef __amigaos__
+        _position += length; // counted before the check so a partial write still moves the position
+#endif
         if (auto count = fwrite(buffer, static_cast<size_t>(length), 1, _file); count != 1)
         {
             char msg[256];
@@ -268,6 +299,9 @@ namespace OpenRCT2
             return Platform::TryReadAsset(_asset, buffer, length);
         }
         size_t readBytes = fread(buffer, 1, static_cast<size_t>(length), _file);
+#ifdef __amigaos__
+        _position += readBytes;
+#endif
         return readBytes;
     }
 

@@ -24,6 +24,15 @@
 #include "Path.hpp"
 #include "String.hpp"
 
+#ifdef __amigaos__
+extern "C" {
+typedef void (*amiga_dir_cb)(void* ctx, const char* name, int isDir, unsigned long size, unsigned long mtime);
+void amiga_dir_scan(const char* path, amiga_dir_cb cb, void* ctx);
+}
+#endif
+
+#include <algorithm>
+#include <cstring>
 #include <memory>
 #include <set>
 #include <stack>
@@ -320,6 +329,27 @@ public:
 
     void getDirectoryChildren(std::vector<DirectoryChild>& children, const std::string& path) override
     {
+    #ifdef __amigaos__
+        // ExNext() gives name, type, size and date in one DOS call per entry; scandir()+stat() needed about six.
+        amiga_dir_scan(
+            path.c_str(),
+            [](void* ctx, const char* name, int isDir, unsigned long size, unsigned long mtime) {
+                auto& out = *static_cast<std::vector<DirectoryChild>*>(ctx);
+                DirectoryChild child;
+                child.name = name;
+                child.type = isDir ? DirectoryChildType::directory : DirectoryChildType::file;
+                child.size = size;
+                child.lastModified = mtime;
+                out.push_back(std::move(child));
+            },
+            &children);
+        // scandir() returned the entries sorted; keep that order so index and list contents do not depend on the
+        // filesystem's hash order.
+        std::sort(children.begin(), children.end(), [](const DirectoryChild& a, const DirectoryChild& b) {
+            return std::strcmp(a.name.c_str(), b.name.c_str()) < 0;
+        });
+        return;
+    #endif
         struct dirent** namelist;
         int32_t count = scandir(path.c_str(), &namelist, filterFunc, alphasort);
         if (count > 0)
