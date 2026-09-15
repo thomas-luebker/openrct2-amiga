@@ -246,9 +246,10 @@ namespace OpenRCT2::Config
             // Always have multi-threading disabled in debug builds, this makes things slower.
             model->multiThreading = false;
 #elif defined(__amigaos__)
-            // The 68k machines this runs on have one core, so painting the viewport columns on worker threads only
-            // adds context switches and a lock around the drawing calls. Measured on a 2,070-guest park on the
-            // emulator: 28.2 fps against 27.2 with threads. Still switchable in the options.
+            // The 68k machines this runs on have one core, and JobPool creates no threads here at all: it runs every
+            // task on the caller. So the only thing this switch did was make the drawing code take the locks in
+            // DrawingLock for a concurrency that does not exist. Measured on a 2,070-guest park on the emulator:
+            // 28.2 fps against 27.2 with it on. Still switchable in the options.
             model->multiThreading = reader->GetBoolean("multithreading", false);
 #else
             model->multiThreading = reader->GetBoolean("multithreading", true);
