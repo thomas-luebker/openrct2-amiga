@@ -135,16 +135,18 @@ is being written, which on the emulator took a quarter off the cost of a tick.
 
 ## 4b. The frame-rate counter
 
-`show_fps = true` in `user/config.ini` puts the frame rate at the top centre of the screen. In
-test24 and earlier it showed nothing at all, on every machine: a stray write inside the game
-clobbered one field of the screen's drawing state, and everything drawn straight to the screen
-rather than through a window was then skipped. test25 repairs that field every frame, so the
-counter is back. Note that deleting `config.ini` resets `show_fps` to false, so set it again
-afterwards.
+`show_fps = true` in `user/config.ini` puts the frame rate at the top centre of the screen. On some
+machines it showed nothing at all up to test24, on others it worked: a stray write inside the game
+clobbers one field of the screen's drawing state, and where those four bytes land depends on how
+the heap happens to be laid out on your machine. Where it hit that field, everything drawn straight
+to the screen rather than through a window was skipped, the counter included. test25 repairs the
+field every frame, so the counter is back where it was missing. Note that deleting `config.ini`
+resets `show_fps` to false, so set it again afterwards.
 
-If your trace ever contains the line *"gfx: main render target origin was clobbered"*, that is the
-stray write happening on your machine; we would like to know, because we have not found what does
-it yet. It is harmless now.
+The stray write itself is not found yet. If your trace ever contains the line *"gfx: main render
+target origin was clobbered"*, that is the write hitting the screen state on your machine and we
+would like to know. Text that turns into nonsense in menus is what the same write would look like
+if it lands somewhere else, so tell us about that too.
 
 ## 4c. Painting on one core
 
