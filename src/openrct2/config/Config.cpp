@@ -245,6 +245,11 @@ namespace OpenRCT2::Config
 #ifdef _DEBUG
             // Always have multi-threading disabled in debug builds, this makes things slower.
             model->multiThreading = false;
+#elif defined(__amigaos__)
+            // The 68k machines this runs on have one core, so painting the viewport columns on worker threads only
+            // adds context switches and a lock around the drawing calls. Measured on a 2,070-guest park on the
+            // emulator: 28.2 fps against 27.2 with threads. Still switchable in the options.
+            model->multiThreading = reader->GetBoolean("multithreading", false);
 #else
             model->multiThreading = reader->GetBoolean("multithreading", true);
 #endif // _DEBUG

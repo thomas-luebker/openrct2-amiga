@@ -116,6 +116,19 @@ public:
     void BeginDraw() override
     {
         AMIGA_TRACE_ONCE("gfx: first BeginDraw");
+        // The main render target covers the whole screen, so its origin is 0,0 by definition and nothing in the
+        // engine ever moves it. It is re-asserted here because a stray four-byte write clobbers the y field once
+        // during start-up (reproducible on the emulator; it does not happen with sound switched off, and the write
+        // itself is not yet found). Everything drawn straight to the screen rather than through a window reads that
+        // field to decide whether it is off-target: with a garbage y, the frame-rate counter and the replay notice
+        // were silently skipped for the whole session. A tester's trace now says whether it still happens.
+        auto* mainRT = getRT();
+        if (mainRT != nullptr && (mainRT->x != 0 || mainRT->y != 0))
+        {
+            AMIGA_TRACE_ONCE("gfx: main render target origin was clobbered, restored to 0,0");
+            mainRT->x = 0;
+            mainRT->y = 0;
+        }
         resetDirtyBox();
         _tBegin = amiga_ticks_ms();
         X8DrawingEngine::BeginDraw();

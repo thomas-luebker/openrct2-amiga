@@ -114,7 +114,7 @@ void drawText(RenderTarget& rt, const ScreenCoordsXY& coords, StringId format, c
 void drawText(RenderTarget& rt, const ScreenCoordsXY& coords, u8string_view string, TextPaint textPaint)
 {
 #ifdef __amigaos__
-    if (coords.y >= rt.y + rt.height)
+    if (rt.y > -4096 && rt.y < 4096 && coords.y >= rt.y + rt.height)
         return; // entirely below the render target: no measuring, no colour state to carry forward
 #endif
     auto noFormatting = textPaint.flags.has(TextPaintFlag::noFormatting);

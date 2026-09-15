@@ -806,8 +806,12 @@ namespace OpenRCT2::Drawing
         // A window redraw for a small dirty rectangle still walks every string it owns: skip the glyph blits of lines
         // that lie entirely outside the render target (positions and colour codes are still tracked).
         {
+            // Only skip when the target's own origin is plausible: a single corrupted word in it must not turn into
+            // "no text anywhere", which is what happened to the frame-rate counter.
+            const bool originSane = rt.x > -4096 && rt.x < 4096 && rt.y > -4096 && rt.y < 4096;
             const int32_t lineHeight = FontGetLineHeight(fontStyle) + 16; // margin for y-offset (wavy) text
-            if (coords.y + lineHeight <= rt.y || coords.y - 16 >= rt.y + rt.height || coords.x >= rt.x + rt.width)
+            if (originSane
+                && (coords.y + lineHeight <= rt.y || coords.y - 16 >= rt.y + rt.height || coords.x >= rt.x + rt.width))
             {
                 info.textDrawFlags.set(TextDrawFlag::noDraw);
             }
