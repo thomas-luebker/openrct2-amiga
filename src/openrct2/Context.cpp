@@ -1354,8 +1354,10 @@ namespace OpenRCT2
 
         void amigaNoteTickCost(uint32_t ms)
         {
-            // Smoothed over four ticks so one expensive tick (a ride rating pass, an autosave) does not swing it.
-            _amigaTickMsAvg = (_amigaTickMsAvg * 3 + ms) / 4;
+            // A park load happens inside a tick and takes tens of seconds; that is not the cost of a tick, and
+            // letting it into the average would hold the cap at one for a while afterwards. Anything past half a
+            // second is over the cap's threshold many times over, so clamping there changes no decision.
+            _amigaTickMsAvg = (_amigaTickMsAvg * 3 + std::min(ms, 500u)) / 4;
         }
 #endif
 

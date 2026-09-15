@@ -1,6 +1,6 @@
 # OpenRCT2 on AmigaOS 3.2 (68k) — tester guide
 
-*Build: test23. This is an early, unfinished port. You are testing it — thank you.*
+*Build: test24. This is an early, unfinished port. You are testing it — thank you.*
 
 OpenRCT2 is the open-source re-implementation of RollerCoaster Tycoon 2. This build is a
 big-endian port of the upstream C++20 engine to 68k AmigaOS, with an Intuition/RTG display
@@ -83,6 +83,19 @@ those searches to 4,000 tiles (`pathfind_tile_budget` in `user/config.ini`); a s
 its goal is unaffected, only the fallback direction of a failed search can differ. Set it to 15000
 for exact PC behaviour, or lower (2000) if a big park still runs in slow motion.
 
+Since test24 a big park stays usable even while the simulation is slow. One simulation tick in a
+park with a couple of thousand guests costs far more than a whole frame, and the game used to run
+up to four ticks back to back before drawing once, so the picture and the mouse froze for the
+length of four ticks: one tester's 2,000-guest park drew about one frame per second. The game now
+draws after every tick when a tick is that expensive. The park does not run any faster in game
+time, but you can see it and click in it: on the emulator a 2,070-guest park went from 3 to 32
+frames per second. Nothing about the simulation changed; every tick is a whole, ordinary tick.
+
+test24 also stopped measuring itself. Every guest was timed with two system-clock reads per tick
+whether or not you asked for a trace, which in that park is a quarter of a million clock reads a
+second, and a clock read on a PiStorm crosses the bus. The measurement now only runs while a trace
+is being written, which on the emulator took a quarter off the cost of a tick.
+
 ## 3. Install the game
 
 1. Extract the archive where there is room, e.g. `Work:Games/`. In a Shell:
@@ -111,7 +124,11 @@ for exact PC behaviour, or lower (2000) if a big park still runs in slow motion.
 
 - The first start **builds an index** of all game objects and scenarios into the `user` drawer.
   This takes 1–2 minutes on a 68040 and is much faster on every later start.
-- Loading the title screen takes 40–60 s on an emulated 68040.
+- Loading the title screen takes about 30 s on an emulated 68040. test24 reads files the Amiga way
+  rather than the way the C library suggested: the directory scan asks AmigaDOS for name, size and
+  date in one call per file instead of six, the file buffer is 64 KB instead of 1 KB, and the
+  stream no longer asks AmigaDOS where it is before every single read. Reading the 35 MB of object
+  data went from 2.0 s to 0.4 s, and the whole start from 40 s to 31 s.
 - Then the title sequence plays (parks fly by) and the main menu appears in the middle:
   **New Game**, **Load Game**, **Toolbox**. Top-right: **Options**.
 - Expect **~25–30 fps at 640×480** on a fast machine.
@@ -140,6 +157,8 @@ for exact PC behaviour, or lower (2000) if a big park still runs in slow motion.
 - **Freeze a few seconds into the title park (PiStorm/Emu68, builds test15 to test22):** test23 keeps the test14
   path finder back and no longer walks the heap every 100 frames unless a trace is written. Bisect switches, each `SetEnv` before starting:
   `OPENRCT2_NO_HEAP_STATS 1`, `OPENRCT2_NO_RLE_FAST 1`, `OPENRCT2_NO_TILE_CULL 1`, `OPENRCT2_SKIP_ENTITIES 1`.
+  test24 adds `OPENRCT2_NO_TICKCAP 1`, which puts the frame loop back the way it was before the change described
+  in section 2f, in case the new one misbehaves on your machine.
 - **RollerCoaster Tycoon 1 scenarios (`.SC4`) play** and their simulation is bit-exact with the
   PC build. Rides that only exist in RCT1 use fallback RCT2 graphics unless you also own RCT1 and
   set `rct1_path` in `user/config.ini` to its folder; the log line *"Park has objects which require
