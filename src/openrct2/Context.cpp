@@ -85,6 +85,7 @@ static uint32_t gAmigaFrameStat[8] = {};
 #include "world/MapAnimation.h"
 #include "world/MapSelection.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <exception>
@@ -143,6 +144,10 @@ namespace OpenRCT2
 
         Timer _timer;
         float _ticksAccumulator = 0.0f;
+#ifdef __amigaos__
+        // Rolling average cost of one simulation tick, in milliseconds. See amigaMaxTicksPerFrame().
+        uint32_t _amigaTickMsAvg = 0;
+#endif
         float _realtimeAccumulator = 0.0f;
         float _timeScale = 1.0f;
         bool _variableFrame = false;
@@ -1322,6 +1327,38 @@ namespace OpenRCT2
             }
         }
 
+#ifdef __amigaos__
+        /**
+         * How many simulation ticks may run before the next redraw.
+         *
+         * In a park with a couple of thousand guests one tick costs far more than a whole frame. The tick loops
+         * below would then run kGameMaxUpdates ticks back to back and draw once, so the picture, the mouse pointer
+         * and every window froze for the length of four ticks: a tester's 2,000-guest park drew about one frame per
+         * second. Drawing is cheap next to such a tick (5 ms against 35 ms in that park), so running fewer ticks per
+         * drawn frame costs almost no game speed while multiplying the frame rate. The simulation itself is
+         * untouched: every tick that runs is a whole, ordinary tick in the usual order, and the accumulator clamp in
+         * UpdateTimeAccumulators already decided how many of them real time allows.
+         *
+         * OPENRCT2_NO_TICKCAP=1 restores the plain upstream behaviour for comparison.
+         */
+        uint32_t amigaMaxTicksPerFrame() const
+        {
+            static const bool disabled = amiga_env_flag("OPENRCT2_NO_TICKCAP") != 0;
+            if (disabled || _amigaTickMsAvg <= 1)
+                return kGameMaxUpdates;
+            // Fast forward asks for more game time per real second, so it gets a proportionally larger budget.
+            const float budgetMs = kGameUpdateTimeMS * 1000.0f * std::max(_timeScale, 1.0f);
+            const uint32_t n = static_cast<uint32_t>(budgetMs / static_cast<float>(_amigaTickMsAvg));
+            return std::clamp<uint32_t>(n, 1u, kGameMaxUpdates);
+        }
+
+        void amigaNoteTickCost(uint32_t ms)
+        {
+            // Smoothed over four ticks so one expensive tick (a ride rating pass, an autosave) does not swing it.
+            _amigaTickMsAvg = (_amigaTickMsAvg * 3 + ms) / 4;
+        }
+#endif
+
         void RunFixedFrame(float deltaTime)
         {
             PROFILED_FUNCTION();
@@ -1346,14 +1383,27 @@ namespace OpenRCT2
                 return;
             }
 
+#ifdef __amigaos__
+            uint32_t ticksThisFrame = 0;
+            const uint32_t maxTicksThisFrame = amigaMaxTicksPerFrame();
+#endif
             while (_ticksAccumulator >= kGameUpdateTimeMS)
             {
+#ifdef __amigaos__
+                const uint32_t tTick = Platform::GetTicks();
+#endif
                 Tick();
 #ifdef __amigaos__
+                amigaNoteTickCost(Platform::GetTicks() - tTick);
                 gAmigaFrameStat[7]++;
 #endif
 
                 _ticksAccumulator -= kGameUpdateTimeMS;
+#ifdef __amigaos__
+                // The rest of the accumulated time is kept, not dropped: it is spent by the following frames.
+                if (++ticksThisFrame >= maxTicksThisFrame)
+                    break;
+#endif
             }
 #ifdef __amigaos__
             uint32_t s2 = Platform::GetTicks();
@@ -1383,19 +1433,33 @@ namespace OpenRCT2
 
             _uiContext->ProcessMessages();
 
+#ifdef __amigaos__
+            uint32_t ticksThisFrame = 0;
+            const uint32_t maxTicksThisFrame = amigaMaxTicksPerFrame();
+#endif
             while (_ticksAccumulator >= kGameUpdateTimeMS)
             {
                 // Get the original position of each sprite
                 if (shouldDraw)
                     tweener.preTick();
 
+#ifdef __amigaos__
+                const uint32_t tTick = Platform::GetTicks();
+#endif
                 Tick();
+#ifdef __amigaos__
+                amigaNoteTickCost(Platform::GetTicks() - tTick);
+#endif
 
                 _ticksAccumulator -= kGameUpdateTimeMS;
 
                 // Get the next position of each sprite
                 if (shouldDraw)
                     tweener.postTick();
+#ifdef __amigaos__
+                if (++ticksThisFrame >= maxTicksThisFrame)
+                    break;
+#endif
             }
 
             _backgroundWorker.dispatchCompleted();

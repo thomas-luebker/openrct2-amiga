@@ -1845,39 +1845,53 @@ namespace OpenRCT2
             }
             if (owner != nullptr)
             {
-                std::vector<ScreenRect> pieces{ invalidRect };
+                // Every guest that moves inside the view lands here twice, so the rectangle list is kept on the
+                // stack: the std::vector version allocated once per piece list and once more per window above,
+                // which on a 68k cost more than the repaint it saves. 32 pieces can each split into four, hence 128.
+                constexpr size_t kMaxPieces = 32;
+                constexpr size_t kCapacity = kMaxPieces * 4;
+                ScreenRect bufA[kCapacity];
+                ScreenRect bufB[kCapacity];
+                ScreenRect* pieces = bufA;
+                ScreenRect* next = bufB;
+                size_t nPieces = 1;
+                pieces[0] = invalidRect;
+
                 auto it = std::next(WindowGetIterator(owner));
-                for (; it != gWindowList.end() && pieces.size() < 32; ++it)
+                for (; it != gWindowList.end() && nPieces < kMaxPieces; ++it)
                 {
                     const auto* w = it->get();
                     if (w->flags.has(WindowFlag::dead) || w->flags.has(WindowFlag::transparent) || !w->isVisible)
                         continue;
                     const ScreenRect wr = { w->windowPos, w->windowPos + ScreenCoordsXY{ w->width, w->height } };
-                    std::vector<ScreenRect> next;
-                    for (const auto& r : pieces)
+                    size_t nNext = 0;
+                    for (size_t i = 0; i < nPieces; i++)
                     {
+                        const ScreenRect& r = pieces[i];
                         if (r.GetRight() <= wr.GetLeft() || r.GetLeft() >= wr.GetRight() || r.GetBottom() <= wr.GetTop()
                             || r.GetTop() >= wr.GetBottom())
                         {
-                            next.push_back(r);
+                            next[nNext++] = r;
                             continue;
                         }
                         // strips of r outside wr: above, below, left, right
                         if (r.GetTop() < wr.GetTop())
-                            next.push_back({ r.Point1, { r.GetRight(), wr.GetTop() } });
+                            next[nNext++] = { r.Point1, { r.GetRight(), wr.GetTop() } };
                         if (r.GetBottom() > wr.GetBottom())
-                            next.push_back({ { r.GetLeft(), wr.GetBottom() }, r.Point2 });
+                            next[nNext++] = { { r.GetLeft(), wr.GetBottom() }, r.Point2 };
                         const int32_t midTop = std::max(r.GetTop(), wr.GetTop());
                         const int32_t midBottom = std::min(r.GetBottom(), wr.GetBottom());
                         if (r.GetLeft() < wr.GetLeft())
-                            next.push_back({ { r.GetLeft(), midTop }, { wr.GetLeft(), midBottom } });
+                            next[nNext++] = { { r.GetLeft(), midTop }, { wr.GetLeft(), midBottom } };
                         if (r.GetRight() > wr.GetRight())
-                            next.push_back({ { wr.GetRight(), midTop }, { r.GetRight(), midBottom } });
+                            next[nNext++] = { { wr.GetRight(), midTop }, { r.GetRight(), midBottom } };
                     }
-                    pieces.swap(next);
+                    std::swap(pieces, next);
+                    nPieces = nNext;
                 }
-                for (const auto& r : pieces)
+                for (size_t i = 0; i < nPieces; i++)
                 {
+                    const ScreenRect& r = pieces[i];
                     if (r.GetRight() > r.GetLeft() && r.GetBottom() > r.GetTop())
                         GfxSetDirtyBlocks(r);
                 }

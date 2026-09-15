@@ -71,8 +71,14 @@ unsigned amiga_ticks_us(void)
 {
     struct Library* TimerBase;
     struct timeval tv;
-    if (amiga_ticks_ms() == 0)
-        return 0; /* opens the timer device on first use */
+    if (s_timerReq == NULL)
+    {
+        /* Opens the timer device on first use. Only this first call goes the long way round: asking
+         * amiga_ticks_ms() every time meant two GetSysTime() calls per reading, and on a PiStorm a clock read
+         * crosses the bus. */
+        if (amiga_ticks_ms() == 0)
+            return 0;
+    }
     TimerBase = (struct Library*)s_timerReq->tr_node.io_Device;
     GetSysTime(&tv);
     return (unsigned)(tv.tv_secs * 1000000u + tv.tv_micro);

@@ -206,6 +206,13 @@ namespace OpenRCT2
 
         uint32_t index = 0;
 
+#ifdef __amigaos__
+        // The profile below reads the system clock twice per guest. In a park with 2,000 guests that is a quarter
+        // of a million clock reads per second, and on a PiStorm each one crosses the bus, so it is only paid while
+        // a trace is actually being written.
+        static const bool profileOff = amiga_env_flag("OPENRCT2_NO_PEEPPROF") != 0;
+        const bool profile = amiga_trace_enabled() != 0 && !profileOff;
+#endif
         for (auto peep : EntityList<Guest>())
         {
             if ((index & kTicks128Mask) == currentTicksMasked)
@@ -215,11 +222,18 @@ namespace OpenRCT2
 
 #ifdef __amigaos__
             // trace profile: microseconds per guest state, printed with the tick line
-            const unsigned t0 = amiga_ticks_us();
-            const auto state = static_cast<size_t>(peep->state) & 31;
-            peep->update();
-            gPeepStateUs[state] += amiga_ticks_us() - t0;
-            gPeepStateN[state]++;
+            if (profile)
+            {
+                const unsigned t0 = amiga_ticks_us();
+                const auto state = static_cast<size_t>(peep->state) & 31;
+                peep->update();
+                gPeepStateUs[state] += amiga_ticks_us() - t0;
+                gPeepStateN[state]++;
+            }
+            else
+            {
+                peep->update();
+            }
 #else
             peep->update();
 #endif

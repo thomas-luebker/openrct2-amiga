@@ -1080,10 +1080,17 @@ namespace OpenRCT2::PathFinding
                     else
                     {
 #ifdef __amigaos__
-                        const unsigned tThin = amiga_ticks_us();
-                        isThinJunction = PathIsThinJunction(pathElement, loc);
-                        gPathStat[8]++;
-                        gPathStat[9] += amiga_ticks_us() - tThin;
+                        if (amiga_trace_enabled())
+                        {
+                            const unsigned tThin = amiga_ticks_us();
+                            isThinJunction = PathIsThinJunction(pathElement, loc);
+                            gPathStat[8]++;
+                            gPathStat[9] += amiga_ticks_us() - tThin;
+                        }
+                        else
+                        {
+                            isThinJunction = PathIsThinJunction(pathElement, loc);
+                        }
 #else
                         isThinJunction = PathIsThinJunction(pathElement, loc);
 #endif
@@ -1952,11 +1959,15 @@ namespace OpenRCT2::PathFinding
     {
         LogPathfinding(&peep, "Starting CalculateNextDestination");
 #ifdef __amigaos__
+        // Clock reads are expensive on real hardware, so the profile only runs while a trace is written.
         struct PathTimer
         {
-            unsigned t0 = amiga_ticks_us();
+            const bool profile = amiga_trace_enabled() != 0;
+            unsigned t0 = profile ? amiga_ticks_us() : 0u;
             ~PathTimer()
             {
+                if (!profile)
+                    return;
                 gPathStat[0]++;
                 gPathStat[1] += amiga_ticks_us() - t0;
             }
