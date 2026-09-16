@@ -96,6 +96,29 @@ whether or not you asked for a trace, which in that park is a quarter of a milli
 second, and a clock read on a PiStorm crosses the bus. The measurement now only runs while a trace
 is being written, which on the emulator took a quarter off the cost of a tick.
 
+## 2g. Rain and snow cost a full screen
+
+While weather is drawn, the whole screen is copied to the graphics card every frame. That is
+deliberate: the drops are painted over the finished picture and taken away again next frame, so
+nothing smaller can be marked as changed, and an earlier build that tried drew rain in only part of
+the view. How much it costs depends entirely on how fast your card takes a 640x480 8-bit copy.
+
+Measured on the same park, the same view, nothing else open:
+
+| machine | raining | weather off |
+|---|---|---|
+| PiStorm (Emu68) | no measurable cost | - |
+| Amiga 4000, Zorro RTG card | 9 fps | 34 fps |
+
+On the PiStorm a full-screen copy is a quarter of a millisecond and you will never notice it. On the
+Amiga 4000 it is 55 milliseconds, which is three quarters of the frame. If your machine has a
+graphics card on Zorro and the game slows down when it rains, put
+
+    render_weather_effects = false
+
+in `user/config.ini`. You lose the rain and snow, and you get the frame rate back. It makes no
+difference on a PiStorm, so leave it on there.
+
 ## 3. Install the game
 
 1. Extract the archive where there is room, e.g. `Work:Games/`. In a Shell:
