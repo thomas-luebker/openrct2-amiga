@@ -95,6 +95,23 @@ namespace OpenRCT2
         return static_cast<uint16_t>(_freeIdList.size());
     }
 
+    // The entity slot must hold the largest entity type on every target. Everything the registry can
+    // place in a slot is listed here; a new type that outgrows the slot fails the build rather than
+    // corrupting its neighbour.
+    static_assert(sizeof(Guest) <= kEntitySlotSize, "Guest does not fit an entity slot");
+    static_assert(sizeof(Staff) <= kEntitySlotSize, "Staff does not fit an entity slot");
+    static_assert(sizeof(Vehicle) <= kEntitySlotSize, "Vehicle does not fit an entity slot");
+    static_assert(sizeof(Litter) <= kEntitySlotSize, "Litter does not fit an entity slot");
+    static_assert(sizeof(Balloon) <= kEntitySlotSize, "Balloon does not fit an entity slot");
+    static_assert(sizeof(Duck) <= kEntitySlotSize, "Duck does not fit an entity slot");
+    static_assert(sizeof(MoneyEffect) <= kEntitySlotSize, "MoneyEffect does not fit an entity slot");
+    static_assert(sizeof(JumpingFountain) <= kEntitySlotSize, "JumpingFountain does not fit an entity slot");
+    static_assert(sizeof(SteamParticle) <= kEntitySlotSize, "SteamParticle does not fit an entity slot");
+    static_assert(sizeof(ExplosionCloud) <= kEntitySlotSize, "ExplosionCloud does not fit an entity slot");
+    static_assert(sizeof(ExplosionFlare) <= kEntitySlotSize, "ExplosionFlare does not fit an entity slot");
+    static_assert(sizeof(CrashSplashParticle) <= kEntitySlotSize, "CrashSplashParticle does not fit an entity slot");
+    static_assert(sizeof(VehicleCrashParticle) <= kEntitySlotSize, "VehicleCrashParticle does not fit an entity slot");
+
     std::string EntitiesChecksum::toString() const
     {
         return String::StringFromHex(raw);

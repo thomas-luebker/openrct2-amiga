@@ -31,9 +31,20 @@ namespace OpenRCT2
     constexpr uint32_t kInvalidSpatialIndex = 0xFFFFFFFFu;
     constexpr uint32_t kSpatialIndexDirtyMask = 1u << 31;
 
+    // Every entity lives in a slot of this size, whatever type it is, and the store is
+    // kMaxEntities of them whether the park holds four guests or four thousand. Upstream's 512 bytes
+    // leaves 180 unused per slot on a 32-bit build, where the largest type, a guest, is 332 -- which
+    // is 11 MB of a 68k's memory spent on padding. EntityRegistry.cpp asserts at compile time that
+    // every entity type still fits, so this cannot silently become too small.
+#ifdef __amigaos__
+    constexpr size_t kEntitySlotSize = 352;
+#else
+    constexpr size_t kEntitySlotSize = 0x200;
+#endif
+
     union Entity_t
     {
-        uint8_t pad00[0x200];
+        uint8_t pad00[kEntitySlotSize];
         EntityBase base;
         Entity_t()
             : pad00()
