@@ -34,6 +34,7 @@
 #include "MoneyEffect.h"
 #include "Particle.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
@@ -44,19 +45,20 @@ namespace OpenRCT2
 {
     using namespace OpenRCT2::Core;
 
-    static constexpr uint32_t ComputeSpatialIndex(const CoordsXY& loc)
+    uint32_t EntityRegistry::computeSpatialIndex(const CoordsXY& loc) const
     {
         if (loc.isNull())
-            return kSpatialIndexNullBucket;
+            return spatialNullBucket();
 
         // NOTE: The input coordinate is rotated and can have negative components.
         const auto tileX = std::abs(loc.x) / kCoordsXYStep;
         const auto tileY = std::abs(loc.y) / kCoordsXYStep;
 
-        if (tileX >= kMaximumMapSizeTechnical || tileY >= kMaximumMapSizeTechnical)
-            return kSpatialIndexNullBucket;
+        const auto stride = static_cast<int32_t>(_spatialStride);
+        if (tileX >= stride || tileY >= stride)
+            return spatialNullBucket();
 
-        return tileX * kMaximumMapSizeTechnical + tileY;
+        return static_cast<uint32_t>(tileX) * _spatialStride + static_cast<uint32_t>(tileY);
     }
 
     static constexpr uint32_t GetSpatialIndex(EntityBase& entity)
@@ -135,7 +137,7 @@ namespace OpenRCT2
 
     const std::vector<EntityId>& EntityRegistry::getEntityTileList(const CoordsXY& spritePos)
     {
-        return gEntitySpatialIndex[ComputeSpatialIndex(spritePos)];
+        return gEntitySpatialIndex[computeSpatialIndex(spritePos)];
     }
 
     void EntityRegistry::resetEntityLists()
@@ -187,8 +189,8 @@ namespace OpenRCT2
                     static_cast<unsigned>(sizeof(Staff)), static_cast<unsigned>(sizeof(Vehicle)),                              \
                     static_cast<unsigned>(sizeof(Litter)), static_cast<unsigned>(sizeof(Balloon)),                             \
                     static_cast<unsigned>(sizeof(MoneyEffect)), static_cast<unsigned>(sizeof(SteamParticle)),                  \
-                    static_cast<unsigned>(kSpatialIndexSize), static_cast<unsigned>(sizeof(std::vector<EntityId>)),            \
-                    static_cast<unsigned>(kSpatialIndexSize * sizeof(std::vector<EntityId>) / 1024));                          \
+                    static_cast<unsigned>(gEntitySpatialIndex.size()), static_cast<unsigned>(sizeof(std::vector<EntityId>)),   \
+                    static_cast<unsigned>(gEntitySpatialIndex.size() * sizeof(std::vector<EntityId>) / 1024));                          \
                 amiga_trace(_b);                                                                                               \
             }                                                                                                                  \
         } while (0)
@@ -238,6 +240,20 @@ namespace OpenRCT2
      */
     void EntityRegistry::resetEntitySpatialIndices()
     {
+        // The only place the stride changes. Every entity is re-inserted below, so no stored index
+        // survives it. A map is square here; the larger side decides, and one spare row covers the
+        // null bucket.
+        const auto& mapSize = getGameState().mapSize;
+        const auto wanted = static_cast<uint32_t>(
+            std::clamp<int32_t>(std::max(mapSize.x, mapSize.y), 1, kMaximumMapSizeTechnical));
+        if (wanted != _spatialStride || gEntitySpatialIndex.size() != static_cast<size_t>(wanted) * wanted + 1)
+        {
+            // swap rather than assign: assign would keep the old buffer's capacity, which is the memory
+            // this is trying to give back.
+            std::vector<std::vector<EntityId>> fresh(static_cast<size_t>(wanted) * wanted + 1);
+            gEntitySpatialIndex.swap(fresh);
+            _spatialStride = wanted;
+        }
         for (auto& vec : gEntitySpatialIndex)
         {
             vec.clear();
@@ -510,7 +526,7 @@ namespace OpenRCT2
     // Performs a search to ensure that insert keeps next_in_quadrant in sprite_index order
     void EntityRegistry::entitySpatialInsert(EntityBase& entity, const CoordsXY& newLoc)
     {
-        const auto newIndex = ComputeSpatialIndex(newLoc);
+        const auto newIndex = computeSpatialIndex(newLoc);
 
         auto& spatialVector = gEntitySpatialIndex[newIndex];
 
@@ -669,7 +685,7 @@ void EntityBase::setLocation(const CoordsXYZ& newLocation)
         return;
     }
 
-    const auto newSpatialIndex = ComputeSpatialIndex({ x, y });
+    const auto newSpatialIndex = getGameState().entities.computeSpatialIndex({ x, y });
     if (newSpatialIndex == GetSpatialIndex(*this))
     {
         // Avoid marking it dirty when we don't leave the current tile.

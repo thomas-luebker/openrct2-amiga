@@ -73,7 +73,16 @@ namespace OpenRCT2
 
         bool _entityFlashingList[kMaxEntities];
 
-        std::array<std::vector<EntityId>, kSpatialIndexSize> gEntitySpatialIndex;
+        // Sized for the map that is loaded rather than for the largest the engine can hold. Upstream's
+        // fixed 1001x1001 costs 1,002,002 empty vectors -- 11.5 MB on a 32-bit target -- whether the park
+        // is 256 tiles across or 1000. resetEntitySpatialIndices() sets the stride and the size together,
+        // and it is the only place either changes; every lookup goes through computeSpatialIndex().
+        // Starts at the size of a standard RCT2 map so every lookup is in range before the first park is
+        // loaded; resetEntitySpatialIndices() then sizes it to whatever map actually arrives.
+        static constexpr uint32_t kDefaultSpatialStride = 256;
+        std::vector<std::vector<EntityId>> gEntitySpatialIndex
+            = std::vector<std::vector<EntityId>>(kDefaultSpatialStride * kDefaultSpatialStride + 1);
+        uint32_t _spatialStride = kDefaultSpatialStride;
 
     public:
         uint16_t getEntityListCount(EntityType type);
@@ -143,6 +152,11 @@ namespace OpenRCT2
 
         void resetAllEntities();
         void resetEntitySpatialIndices();
+        uint32_t computeSpatialIndex(const CoordsXY& loc) const;
+        uint32_t spatialNullBucket() const
+        {
+            return _spatialStride * _spatialStride;
+        }
 
 #if !defined(DISABLE_NETWORK) || defined(__amigaos__) || defined(OPENRCT2_KEEP_CHECKSUM)
 
