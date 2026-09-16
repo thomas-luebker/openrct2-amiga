@@ -12,6 +12,7 @@
 #include <openrct2-ui/interface/Widget.h>
 #include <openrct2-ui/interface/Window.h>
 #include <openrct2-ui/windows/Windows.h>
+#include <openrct2/platform/AmigaTrace.h>
 #include <openrct2/SpriteIds.h>
 #include <openrct2/Version.h>
 #include <openrct2/drawing/Drawing.h>
@@ -242,7 +243,22 @@ namespace OpenRCT2::Ui::Windows
 
             // Draw the rest of the text
             TextPaint tp{ colours[1], TextAlignment::centre };
-            auto textCoords = windowPos + ScreenCoordsXY((width / 2) - 1, 240);
+            int32_t restTop = 240;
+#ifdef __amigaos__
+            // What this port is running on, in the band between the logo and the credits. It is the first
+            // thing to ask for in a bug report, so it is on screen rather than only in a trace.
+            {
+                char line[128];
+                const auto textWidth = kWindowSize.width - (kPadding * 2);
+                auto amigaCoords = windowPos + ScreenCoordsXY((width / 2) - 1, 222);
+                drawTextWrapped(rt, amigaCoords, textWidth, "AmigaOS 68k port  --  RTG screen, AHI sound", tp);
+                amigaCoords.y += 11;
+                if (amiga_machine_info(line, static_cast<int>(sizeof(line))) > 0)
+                    drawTextWrapped(rt, amigaCoords, textWidth, line, tp);
+                restTop = 266;
+            }
+#endif
+            auto textCoords = windowPos + ScreenCoordsXY((width / 2) - 1, restTop);
             auto textWidth = kWindowSize.width - (kPadding * 2);
             for (auto stringId : _OpenRCT2InfoStrings)
                 textCoords.y += drawTextWrapped(rt, textCoords, textWidth, stringId, tp) + 5;

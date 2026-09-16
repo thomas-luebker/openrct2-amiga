@@ -8,6 +8,7 @@
     #include <proto/dos.h>
     #include <proto/exec.h>
     #include <proto/timer.h>
+    #include <stdio.h>
     #include <string.h>
 
 typedef void (*amiga_dir_cb)(void* ctx, const char* name, int isDir, unsigned long size, unsigned long mtime);
@@ -89,6 +90,34 @@ int amiga_env_flag(const char* name)
 {
     char buf[8];
     return GetVar((STRPTR)name, (STRPTR)buf, sizeof(buf), 0) > 0 ? 1 : 0;
+}
+
+/* One line describing the machine, for the About window and for a tester's bug report:
+ * processor, free Fast RAM, and which of the three binaries is running. */
+int amiga_machine_info(char* buf, int len)
+{
+    const char* cpu = "68020/030";
+    const char* fpu = "";
+    unsigned long fastKb;
+    if (SysBase->AttnFlags & AFF_68060)
+        cpu = "68060";
+    else if (SysBase->AttnFlags & AFF_68040)
+        cpu = "68040";
+    else if (SysBase->AttnFlags & AFF_68030)
+        cpu = "68030";
+    if (SysBase->AttnFlags & AFF_FPU40)
+        fpu = " + FPU";
+    fastKb = (unsigned long)(AvailMem(MEMF_FAST) / 1024);
+
+    #if defined(__HAVE_68881__)
+    #define BUILD_VARIANT "68060 hardware float"
+    #elif defined(__mc68060__)
+    #define BUILD_VARIANT "68060"
+    #else
+    #define BUILD_VARIANT "68020, software float"
+    #endif
+
+    return snprintf(buf, (size_t)len, "%s%s, %lu MB Fast free  --  build: %s", cpu, fpu, fastKb / 1024UL, BUILD_VARIANT);
 }
 
 /* What one amiga_ticks_us() pair costs on this machine, in microseconds.

@@ -4,6 +4,7 @@
     #include <cstdio>
 extern "C" void amiga_trace(const char* line);
 extern "C" unsigned amiga_avail_kb(void);
+extern "C" int amiga_machine_info(char* buf, int len);
 extern "C" unsigned amiga_ticks_us(void);
 extern "C" unsigned amiga_ticks_bias_us(void);
 extern "C" int amiga_env_flag(const char* name);
