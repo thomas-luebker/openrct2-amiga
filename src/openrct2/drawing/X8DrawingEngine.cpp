@@ -9,6 +9,8 @@
 
 #include "X8DrawingEngine.h"
 
+#include "../platform/AmigaTrace.h"
+
 #include "../config/Config.h"
 #include "../core/Guard.hpp"
 #include "../core/Numerics.hpp"
@@ -343,8 +345,17 @@ void X8DrawingEngine::ConfigureDirtyGrid()
 #ifdef __amigaos__
     // Smaller blocks: a walking guest then repaints 64x64 px (3 tile columns) instead of 128x128 (5 columns, twice the
     // rows), and the tile walk behind every viewport paint is the most expensive thing a 68k does per frame.
-    const auto blockWidth = 1u << 5;
-    const auto blockHeight = 1u << 5;
+    // The trade turns around in a crowded park, where hundreds of guests scattered over the view mark far more
+    // small blocks than large ones and each block pays its own tile walk. OPENRCT2_DIRTY_SHIFT (5, 6 or 7) picks
+    // the size so the two can be compared on the machine that matters.
+    auto shift = 5u;
+    {
+        char buf[8] = {};
+        if (amiga_getenv_str("OPENRCT2_DIRTY_SHIFT", buf, static_cast<int>(sizeof(buf))) && buf[0] >= '5' && buf[0] <= '7')
+            shift = static_cast<unsigned>(buf[0] - '0');
+    }
+    const auto blockWidth = 1u << shift;
+    const auto blockHeight = 1u << shift;
 #else
     const auto blockWidth = 1u << 7;
     const auto blockHeight = 1u << 7;
