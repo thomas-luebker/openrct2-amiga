@@ -83,6 +83,23 @@ those searches to 4,000 tiles (`pathfind_tile_budget` in `user/config.ini`); a s
 its goal is unaffected, only the fallback direction of a failed search can differ. Set it to 15000
 for exact PC behaviour, or lower (2000) if a big park still runs in slow motion.
 
+**How many guests your machine will take.** The simulation is almost entirely the guests, and its
+cost scales with how many there are, so this has a straight answer. A tick has to fit in about 50 ms
+to feel alive:
+
+| machine | comfortable up to |
+|---|---|
+| 68060 at 50 MHz | about 400 guests |
+| 68060 at 100 MHz | about 800 guests |
+| PiStorm (Emu68) | about 2,000 guests, where drawing becomes the limit instead |
+
+(One guest costs roughly 140 millionths of a second per tick on a 50 MHz 68060, 63 at 100 MHz and
+13 on a PiStorm, so the number of guests your machine takes is simply 50 ms divided by that.)
+
+A freshly started scenario runs at the frame cap on all of them; this only matters once a park fills
+up. Doubling a 68060's clock doubles the simulation almost exactly, but it does not help a normal
+park, which is already limited by the frame loop rather than the processor.
+
 Since test24 a big park stays usable even while the simulation is slow. One simulation tick in a
 park with a couple of thousand guests costs far more than a whole frame, and the game used to run
 up to four ticks back to back before drawing once, so the picture and the mouse froze for the

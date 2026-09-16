@@ -39,23 +39,39 @@ threads, soft float, big-endian. It is a fork; upstream declined to merge it, so
 Measured on real hardware, not estimated. A "normal park" is a freshly started scenario; the large
 park is a community one with 2,000 guests.
 
-| | Amiga 4000, 68060 at 50 MHz, Zorro RTG | Amiga 1200 + PiStorm (Emu68) |
+| | A4000, 68060 @ 50 MHz | the same at 100 MHz | A1200 + PiStorm (Emu68) |
+|---|---|---|---|
+| normal park | 34 fps (the frame cap) | 37–39 fps (the frame cap) | frame cap |
+| large park, quiet view | — | — | 23–25 fps |
+| large park, built-up view | 0.14 fps (raining) | 3–7 fps | ~8 fps |
+| one tick, 4 guests | 29 ms | 14 ms | — |
+| one tick, 2,070 guests | 287 ms | 125–136 ms | 40 ms |
+| loading a scenario | ~4½ minutes | ~2¼ minutes | ~40 s |
+
+### How many guests will my machine take?
+
+This is the question that decides whether a park stays playable, and it has a straight answer,
+because the simulation cost is almost entirely the guests and it scales with how many there are.
+A tick has to fit in about 50 ms to feel alive:
+
+| machine | cost per guest per tick | comfortable up to |
 |---|---|---|
-| normal park | 33–35 fps (the frame cap) | frame cap |
-| large park, quiet view | — | 23–25 fps |
-| large park, built-up view | 0.14 fps | ~8 fps |
-| while it rains | 9 fps | no measurable cost |
-| loading a scenario | ~4½ minutes | ~40 s |
+| 68060 at 50 MHz | ~140 µs | **~400 guests** |
+| 68060 at 100 MHz | ~63 µs | **~800 guests** |
+| PiStorm (Emu68) | ~13 µs | **~2,000 guests**, though drawing then becomes the limit |
 
-What the numbers mean if you are wondering whether your machine will do:
+Other things worth knowing:
 
-- **A normal park plays at the frame cap on both.** That is what most people play.
-- **A park with two thousand guests is a PiStorm job.** On a 68060 it is not playable.
-- **Rain costs a whole-screen copy every frame.** That is free on a PiStorm and three quarters of the
-  frame on a Zorro graphics card: set `render_weather_effects = false` in `user/config.ini` there.
-- **Where the time goes in a big park**: about 40 ms per simulation tick (three quarters of it the
-  guests) and, in a built-up view, about 90 ms building the paint list. The copy to the graphics card
-  is a quarter of a millisecond on a PiStorm and 55 ms over Zorro.
+- **A normal park plays at the frame cap on every machine here**, which is what most people play.
+  Doubling a 68060's clock does not change that, because the frame loop rather than the processor is
+  the limit there.
+- **Doubling the clock doubles everything processor-bound** almost exactly: tick 2.07×, guest updates
+  2.1×. The copy to a Zorro graphics card improves only 1.5×, because the bus does not get faster.
+- **Rain costs a whole-screen copy every frame.** Free on a PiStorm, three quarters of the frame on a
+  Zorro card: set `render_weather_effects = false` in `user/config.ini` there.
+- **Where the time goes in a big park**: the simulation tick, of which three quarters is the guests,
+  and in a built-up view about 90 ms building the paint list. The copy to the card is a quarter of a
+  millisecond on a PiStorm and 55 ms over Zorro.
 - **A hardware-FPU build buys nothing.** On a real 68060 with a 68882 it loaded 622 objects in 116 s
   against 118 s for the soft-float build. The game keeps floating point out of its hot paths.
 
