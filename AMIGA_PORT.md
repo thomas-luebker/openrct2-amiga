@@ -15,7 +15,9 @@ Build instructions: `distribution/amiga/BUILDING.md`. Tester notes:
 - **Graphical UI** on a Picasso96/CyberGraphX 8-bit RTG screen with Intuition
   mouse and keyboard input, through a small SDL2 API shim
   (`src/openrct2-ui/platform/amiga/`), so the upstream UI code is untouched.
-  ~25 fps at 640x480 on an emulated 68040; faster on PiStorm and Vampire.
+  A normal park runs at the frame cap on a 68060 and on a PiStorm; a park with
+  2,000 guests is 23-25 fps on a PiStorm in a quiet view and about 8 in a
+  built-up one. Measured figures and where the time goes: `readme.md`.
 - **Sound and music** through `ahi.device` (AHI), using upstream's mixer with
   integer fixed-point effect loops for the soft-float 68k. Ogg/Vorbis and
   FLAC are not built, so OpenRCT2's own music packs do not play; the RCT2
@@ -23,8 +25,12 @@ Build instructions: `distribution/amiga/BUILDING.md`. Tester notes:
 
 Not done: the optional Ogg music packs, networking, scripting. Cursor shapes
 (intuition pointerclass) and the text clipboard (clipboard.device, FTXT) exist
-since test17+; a hardware-FPU build variant is being tried.
-Memory: about 256 MB of Fast RAM in use.
+since test17+. The hardware-FPU variant runs on a real 68060 and is no faster,
+because the hot paths avoid floating point.
+
+Memory, measured with a normal park loaded: about 165 MB actually in use, with
+the allocator holding about 220 MB from the system. A park with 2,000 guests
+reaches roughly 240 MB. 512 MB of Fast RAM is comfortable.
 
 ## How the port is structured
 
