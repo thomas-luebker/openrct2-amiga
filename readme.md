@@ -69,9 +69,15 @@ Other things worth knowing:
   2.1×. The copy to a Zorro graphics card improves only 1.5×, because the bus does not get faster.
 - **Rain costs a whole-screen copy every frame.** Free on a PiStorm, three quarters of the frame on a
   Zorro card: set `render_weather_effects = false` in `user/config.ini` there.
-- **Where the time goes in a big park**: the simulation tick, of which three quarters is the guests,
-  and in a built-up view about 90 ms building the paint list. The copy to the card is a quarter of a
-  millisecond on a PiStorm and 55 ms over Zorro.
+- **Where the time goes in a big park.** On a PiStorm with 2,070 guests, per frame: about 40 ms of
+  simulation and, in a built-up view, about 90 ms of drawing. Inside the tick, guests are 27 ms and
+  everything else together under 6. Inside the guests, walking is 14.5 ms and **two thirds of that is
+  path finding** — 29 searches per tick at about 330 µs each. Inside the drawing, building the paint
+  list is 50 ms and drawing the sprites 20; the copy to the card is a quarter of a millisecond on a
+  PiStorm and 55 ms over Zorro.
+- **Profiling on this hardware has to calibrate itself.** One system-clock read pair costs 20 µs on a
+  PiStorm, which is more than most of the things a probe measures, so the port measures that cost at
+  startup and subtracts it. Figures taken before that was done overstated everything.
 - **A hardware-FPU build buys nothing.** On a real 68060 with a 68882 it loaded 622 objects in 116 s
   against 118 s for the soft-float build. The game keeps floating point out of its hot paths.
 

@@ -91,6 +91,36 @@ int amiga_env_flag(const char* name)
     return GetVar((STRPTR)name, (STRPTR)buf, sizeof(buf), 0) > 0 ? 1 : 0;
 }
 
+/* What one amiga_ticks_us() pair costs on this machine, in microseconds.
+ *
+ * On a PiStorm a clock read crosses the bus and takes tens of microseconds, which is more than the thing
+ * most probes measure. Every sampled interval therefore carries a fixed bias. Measuring that bias once
+ * lets a probe subtract it and report something close to the truth. The median of a handful of readings
+ * is used so a scheduler hiccup does not set it. */
+unsigned amiga_ticks_bias_us(void)
+{
+    static unsigned bias = 0xFFFFFFFFu;
+    if (bias == 0xFFFFFFFFu)
+    {
+        unsigned samples[9];
+        int i, j;
+        for (i = 0; i < 9; i++)
+        {
+            unsigned a = amiga_ticks_us();
+            samples[i] = amiga_ticks_us() - a;
+        }
+        for (i = 1; i < 9; i++) /* insertion sort, nine items */
+        {
+            unsigned v = samples[i];
+            for (j = i - 1; j >= 0 && samples[j] > v; j--)
+                samples[j + 1] = samples[j];
+            samples[j + 1] = v;
+        }
+        bias = samples[4];
+    }
+    return bias;
+}
+
 /* Read an environment variable's value (not just its presence). Returns 1 when it was set. */
 int amiga_getenv_str(const char* name, char* buf, int len)
 {

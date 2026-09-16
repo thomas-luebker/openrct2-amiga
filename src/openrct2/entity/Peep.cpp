@@ -11,6 +11,8 @@
 
 #include "../platform/AmigaTrace.h"
 
+#include <cstdio>
+
 #include "../Context.h"
 #include "../Diagnostic.h"
 #include "../GameState.h"
@@ -212,6 +214,17 @@ namespace OpenRCT2
         // a trace is actually being written.
         static const bool profileOff = amiga_env_flag("OPENRCT2_NO_PEEPPROF") != 0;
         const bool profile = amiga_trace_enabled() != 0 && !profileOff;
+        if (profile)
+        {
+            static bool said = false;
+            if (!said)
+            {
+                said = true;
+                char b[96];
+                std::snprintf(b, sizeof(b), "prof: one clock read pair costs %u us on this machine", amiga_ticks_bias_us());
+                AMIGA_TRACE(b);
+            }
+        }
 #endif
         for (auto peep : EntityList<Guest>())
         {
@@ -224,10 +237,13 @@ namespace OpenRCT2
             // trace profile: microseconds per guest state, printed with the tick line
             if (profile)
             {
+                // The clock read's own cost is subtracted, or the figures say more about the bus than the game.
+                static const unsigned bias = amiga_ticks_bias_us();
                 const unsigned t0 = amiga_ticks_us();
                 const auto state = static_cast<size_t>(peep->state) & 31;
                 peep->update();
-                gPeepStateUs[state] += amiga_ticks_us() - t0;
+                const unsigned dt = amiga_ticks_us() - t0;
+                gPeepStateUs[state] += dt > bias ? dt - bias : 0;
                 gPeepStateN[state]++;
             }
             else
