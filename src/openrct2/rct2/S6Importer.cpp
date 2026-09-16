@@ -847,6 +847,7 @@ namespace OpenRCT2::RCT2
             AMIGA_TRACE("s6: initialise");
             Initialise(gameState);
             AMIGA_TRACE("s6: initialised");
+            AMIGA_TRACE_HEAP("after s6 init");
 
             gameState.editorStep = _s6.Info.EditorStep;
             gameState.scenarioOptions.category = _s6.Info.Category;

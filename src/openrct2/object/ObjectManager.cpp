@@ -722,6 +722,7 @@ namespace OpenRCT2
             }
 
             // Unload objects which are not in the required list.
+            AMIGA_TRACE_HEAP("after objects loaded");
             AMIGA_TRACE("objects: unloading the ones no longer required");
             if (objects.empty())
             {
@@ -732,6 +733,7 @@ namespace OpenRCT2
                 UnloadObjectsExcept(objects);
             }
             AMIGA_TRACE("objects: unloaded, setting object lists");
+            AMIGA_TRACE_HEAP("after objects unloaded");
 
             // Set the new object lists
             for (auto type : getAllObjectTypes())

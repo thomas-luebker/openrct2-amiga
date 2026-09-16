@@ -361,6 +361,7 @@ namespace OpenRCT2
                 throw std::runtime_error("Context already initialised.");
             }
             _initialised = true;
+            AMIGA_TRACE_HEAP("context init entry");
 
             CrashInit();
 
@@ -419,12 +420,14 @@ namespace OpenRCT2
 
             // The repositories are all dependent on the RCT2 path being set,
             // so they cannot be set in the constructor.
+            AMIGA_TRACE_HEAP("before repositories created");
             _objectRepository = CreateObjectRepository(*_env);
             _objectManager = CreateObjectManager(*_objectRepository);
             _trackDesignRepository = CreateTrackDesignRepository(*_env);
             _scenarioRepository = CreateScenarioRepository(*_env);
             _sceneManager = createSceneManager(this);
 
+            AMIGA_TRACE_HEAP("after repositories created");
             if (!gOpenRCT2Headless)
             {
                 _assetPackManager = std::make_unique<AssetPackManager>();
@@ -549,6 +552,7 @@ namespace OpenRCT2
             auto currentLanguage = _localisationService->GetCurrentLanguage();
 
             OpenProgress(STR_CHECKING_OBJECT_FILES);
+            AMIGA_TRACE_HEAP("before object repository");
             AMIGA_TRACE("init: object repository");
             _objectRepository->LoadOrConstruct(currentLanguage);
 
@@ -579,6 +583,7 @@ namespace OpenRCT2
             AMIGA_TRACE("init: title sequences");
             TitleSequenceManager::Scan();
             AMIGA_TRACE("init: repositories done");
+            AMIGA_TRACE_HEAP("after repositories");
 
             OpenProgress(STR_LOADING_GENERIC);
         }
@@ -1013,17 +1018,20 @@ namespace OpenRCT2
         // TODO: move function elsewhere?
         bool LoadBaseGraphics()
         {
+            AMIGA_TRACE_HEAP("before g1");
             AMIGA_TRACE("init: loading g1");
             if (!GfxLoadG1(*_env))
             {
                 return false;
             }
             AMIGA_TRACE("init: g1 loaded, loading g2/palettes/fonts/tracks");
+            AMIGA_TRACE_HEAP("after g1");
             GfxLoadG2PalettesFontsTracks();
             AMIGA_TRACE("init: loading csg");
             GfxLoadCsg();
             FontSpriteInitialiseCharacters();
             AMIGA_TRACE("init: base graphics loaded");
+            AMIGA_TRACE_HEAP("after base graphics");
             return true;
         }
 

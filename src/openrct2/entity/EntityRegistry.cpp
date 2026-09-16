@@ -9,6 +9,8 @@
 
 #include "EntityRegistry.h"
 
+#include "../platform/AmigaTrace.h"
+
 #include "../Diagnostic.h"
 #include "../GameState.h"
 #include "../core/Algorithm.hpp"
@@ -149,8 +151,37 @@ namespace OpenRCT2
      *
      *  rct2: 0x0069EB13
      */
+#ifdef __amigaos__
+// One-shot: what the fixed entity store actually costs, and how much of each slot is padding.
+    #define AMIGA_TRACE_ONCE_SIZES()                                                                                           \
+        do                                                                                                                     \
+        {                                                                                                                      \
+            static bool _done = false;                                                                                         \
+            if (!_done && amiga_trace_enabled())                                                                               \
+            {                                                                                                                  \
+                _done = true;                                                                                                  \
+                char _b[224];                                                                                                  \
+                std::snprintf(                                                                                                 \
+                    _b, sizeof(_b),                                                                                            \
+                    "mem: entity slot %u B x %u = %u KB; largest type: guest %u staff %u vehicle %u litter %u balloon %u "      \
+                    "money %u steam %u; spatial index %u buckets x %u B = %u KB",                                              \
+                    static_cast<unsigned>(sizeof(Entity_t)), static_cast<unsigned>(kMaxEntities),                              \
+                    static_cast<unsigned>(sizeof(Entity_t) * kMaxEntities / 1024), static_cast<unsigned>(sizeof(Guest)),       \
+                    static_cast<unsigned>(sizeof(Staff)), static_cast<unsigned>(sizeof(Vehicle)),                              \
+                    static_cast<unsigned>(sizeof(Litter)), static_cast<unsigned>(sizeof(Balloon)),                             \
+                    static_cast<unsigned>(sizeof(MoneyEffect)), static_cast<unsigned>(sizeof(SteamParticle)),                  \
+                    static_cast<unsigned>(kSpatialIndexSize), static_cast<unsigned>(sizeof(std::vector<EntityId>)),            \
+                    static_cast<unsigned>(kSpatialIndexSize * sizeof(std::vector<EntityId>) / 1024));                          \
+                amiga_trace(_b);                                                                                               \
+            }                                                                                                                  \
+        } while (0)
+#endif
+
     void EntityRegistry::resetAllEntities()
     {
+#ifdef __amigaos__
+        AMIGA_TRACE_ONCE_SIZES();
+#endif
         // Free all associated Entity pointers prior to zeroing memory
         for (int32_t i = 0; i < kMaxEntities; ++i)
         {
