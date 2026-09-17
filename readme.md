@@ -69,12 +69,17 @@ Other things worth knowing:
   2.1×. The copy to a Zorro graphics card improves only 1.5×, because the bus does not get faster.
 - **Rain costs a whole-screen copy every frame.** Free on a PiStorm, three quarters of the frame on a
   Zorro card: set `render_weather_effects = false` in `user/config.ini` there.
-- **Where the time goes in a big park.** On a PiStorm with 2,070 guests, per frame: about 40 ms of
-  simulation and, in a built-up view, about 90 ms of drawing. Inside the tick, guests are 27 ms and
-  everything else together under 6. Inside the guests, walking is 14.5 ms and **two thirds of that is
-  path finding** — 29 searches per tick at about 330 µs each. Inside the drawing, building the paint
-  list is 50 ms and drawing the sprites 20; the copy to the card is a quarter of a millisecond on a
-  PiStorm and 55 ms over Zorro.
+- **Where the time goes in a big park.** On a PiStorm with 2,070 guests, per frame in a built-up view:
+  about 35 ms of simulation and 15 ms of drawing. The tick is almost entirely the guests, the guests are
+  almost entirely walking, and **walking is about 80 % path finding** — 31 searches a tick, 229 tiles
+  examined per search. Inside the drawing, building the paint list is two thirds of it; the ground is
+  the largest single item there and the sprites the rest. The copy to the card is a quarter of a
+  millisecond on a PiStorm and 55 ms over Zorro.
+- **The simulation can be measured exactly.** `openrct2-cli simulate <park> <ticks>` runs a fixed park
+  for a fixed number of ticks with no drawing and prints a checksum, so a change can be timed the same
+  way twice. Two traps: the answer from a machine's *first* run on a park includes building the object
+  and scenario indexes and can be 60 % high, and `simulate` takes no command-line options, so the RCT2
+  path has to come from `user/OpenRCT2/config.ini`.
 - **Profiling on this hardware has to calibrate itself.** One system-clock read pair costs 20 µs on a
   PiStorm, which is more than most of the things a probe measures, so the port measures that cost at
   startup and subtracts it. Figures taken before that was done overstated everything.
@@ -86,9 +91,10 @@ Other things worth knowing:
 - AmigaOS 3.2 (tested on 3.2.3); an RTG card with a Picasso96 or CyberGraphX driver and an 8-bit
   640×480 mode (AGA/ECS-only machines are not supported).
 - 68040/68060, PiStorm (Emu68) or Vampire/Apollo. A 68020/030 runs it, slowly.
-- **Memory**: a normal park uses about 165 MB and the allocator holds roughly 220 MB from the system;
-  a park with 2,000 guests reaches about 240 MB and its autosave briefly wants ~75 MB more. 512 MB of
-  Fast RAM is the comfortable figure, 320 MB works for ordinary parks. Set `autosave = 5` (never) in
+- **Memory**: about **105 MB in use for a normal park** and **93 MB for Heide Park with 2,000 guests**
+  (a big park is not the expensive case; the loaded object graphics are). The allocator holds more than
+  it is using — 160 MB and 137 MB respectively — so plan for the larger figure. **256 MB of Fast RAM
+  is comfortable and 192 MB is enough**; autosave briefly wants more, so set `autosave = 5` (never) in
   `user/config.ini` if memory is tight.
 - **Disk**: about 80 MB for the game, plus your RCT2 data (~150 MB, or ~630 MB with all the music).
 - AHI for sound (optional; silent without it).

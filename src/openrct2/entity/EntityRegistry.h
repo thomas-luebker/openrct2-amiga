@@ -31,11 +31,10 @@ namespace OpenRCT2
     constexpr uint32_t kInvalidSpatialIndex = 0xFFFFFFFFu;
     constexpr uint32_t kSpatialIndexDirtyMask = 1u << 31;
 
-    // Every entity lives in a slot of this size, whatever type it is, and the store is
-    // kMaxEntities of them whether the park holds four guests or four thousand. Upstream's 512 bytes
-    // leaves 180 unused per slot on a 32-bit build, where the largest type, a guest, is 332 -- which
-    // is 11 MB of a 68k's memory spent on padding. EntityRegistry.cpp asserts at compile time that
-    // every entity type still fits, so this cannot silently become too small.
+    // Every entity lives in a slot of this size, whatever type it is. Upstream's 512 bytes leaves 180
+    // unused per slot on a 32-bit build, where the largest type, a guest, is 332 -- pure padding, and
+    // the slots are the largest single thing the game state holds. EntityRegistry.cpp asserts at compile
+    // time that every entity type still fits, so this cannot silently become too small.
 #ifdef __amigaos__
     constexpr size_t kEntitySlotSize = 352;
 #else
@@ -67,7 +66,41 @@ namespace OpenRCT2
     class EntityRegistry
     {
     private:
+#ifdef __amigaos__
+        // The store is kMaxEntities slots whether the park holds four guests or four thousand: 65535 x 352
+        // bytes is 22.5 MB of a 68k's memory, nearly all of it never touched. Hold it instead as chunks of
+        // 512 slots (176 KB), each allocated the first time an id inside it is used. Ids are handed out
+        // lowest first (resetFreeIds fills the free list back to front) and a saved park's ids are dense,
+        // so the chunks that exist are the chunks in use: a park reaching id 6000 pays 4 MB, not 22.5.
+        // A chunk is never moved or freed while entities live in it, so an EntityBase* stays valid for
+        // exactly as long as it did with the flat array. tryGetEntity returns nullptr for an id whose
+        // chunk was never allocated, which is the same answer the callers already handle for a null id.
+        static constexpr uint32_t kEntityChunkShift = 9;
+        static constexpr uint32_t kEntityChunkSlots = 1u << kEntityChunkShift;
+        static constexpr uint32_t kEntityChunkMask = kEntityChunkSlots - 1;
+        static constexpr uint32_t kEntityChunkCount = (kMaxEntities + kEntityChunkSlots - 1) / kEntityChunkSlots;
+        Entity_t* _entityChunks[kEntityChunkCount]{};
+        Entity_t* ensureChunkSlot(uint32_t idx);
+        void releaseEntityChunks();
+
+    public:
+        // For the memory trace: how many slot chunks the park actually needed.
+        size_t allocatedChunks() const
+        {
+            size_t n = 0;
+            for (auto* chunk : _entityChunks)
+                n += (chunk != nullptr);
+            return n;
+        }
+        static constexpr size_t chunkBytes()
+        {
+            return kEntityChunkSlots * kEntitySlotSize;
+        }
+
+    private:
+#else
         Entity_t entities[kMaxEntities]{};
+#endif
         std::array<std::list<EntityId>, EnumValue(EntityType::count)> gEntityLists;
         std::vector<EntityId> _freeIdList;
 
@@ -85,6 +118,14 @@ namespace OpenRCT2
         uint32_t _spatialStride = kDefaultSpatialStride;
 
     public:
+#ifdef __amigaos__
+        EntityRegistry() = default;
+        ~EntityRegistry();
+        // One registry exists for the lifetime of the process (GameState_t is made once). Copying it would
+        // shallow-copy the chunk pointers and double-free them, so say so at compile time instead.
+        EntityRegistry(const EntityRegistry&) = delete;
+        EntityRegistry& operator=(const EntityRegistry&) = delete;
+#endif
         uint16_t getEntityListCount(EntityType type);
         uint16_t getNumFreeEntities();
 

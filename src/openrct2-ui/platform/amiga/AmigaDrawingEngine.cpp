@@ -190,17 +190,26 @@ public:
             {
                 unsigned long footprint = 0, inUse = 0;
                 amiga_malloc_stats(&footprint, &inUse);
+                // The two chunked stores are reported alongside: they are the largest single allocations and
+                // the whole point of chunking them is that the park decides how much of each it pays for.
+                const auto& gs = getGameState();
+                const unsigned long entityKB = static_cast<unsigned long>(
+                    gs.entities.allocatedChunks() * EntityRegistry::chunkBytes() / 1024);
+                const unsigned long rideKB = static_cast<unsigned long>(
+                    gs.rides.allocatedChunks() * RideStore::kChunkSlots * sizeof(Ride) / 1024);
                 AMIGA_TRACE(String::stdFormat(
-                                "heap: footprint %lu KB, in use %lu KB, free system memory %u KB", footprint / 1024, inUse / 1024,
-                                amiga_avail_kb())
+                                "heap: footprint %lu KB, in use %lu KB, free system memory %u KB (entity slots %lu KB, "
+                                "rides %lu KB)",
+                                footprint / 1024, inUse / 1024, amiga_avail_kb(), entityKB, rideKB)
                                 .c_str());
             }
             if (gPaintProfEnabled)
             {
-                static const char* kNames[10] = { "surface", "path",    "track",  "smallScenery", "entrance",
-                                                  "wall",    "largeSc", "banner", "tileSetup",    "entities" };
+                static const char* kNames[13] = { "surface", "path",     "track",    "smallScenery", "entrance",
+                                                  "wall",    "largeSc",  "banner",   "tileSetup",    "entities",
+                                                  "sfNeigh", "sfSides",  "sfGround" };
                 std::string line = "paint: sampled ms/calls by type:";
-                for (int i = 0; i < 10; i++)
+                for (int i = 0; i < 13; i++)
                 {
                     line += std::string(" ") + kNames[i] + " " + std::to_string(gPaintProfUs[i] * 16 / 1000) + "/"
                         + std::to_string(gPaintProfN[i]);

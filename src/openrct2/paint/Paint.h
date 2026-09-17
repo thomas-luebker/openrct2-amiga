@@ -239,9 +239,10 @@ struct PaintSession : public PaintSessionCore
 extern PaintSession gPaintSession;
 
 // Trace-only paint profile (AmigaOS, enabled by OPENRCT2_PAINT_PROF): sampled microseconds and calls per tile element
-// type (0-7 = TileElementType), 8 = tile element setup as a whole, 9 = entity setup. Printed with the gfx trace line.
-extern uint32_t gPaintProfUs[10];
-extern uint32_t gPaintProfN[10];
+// type (0-7 = TileElementType), 8 = tile element setup as a whole, 9 = entity setup, 10-12 = the three parts of
+// PaintSurface (neighbour descriptors, tile sides, ground image). Printed with the gfx trace line.
+extern uint32_t gPaintProfUs[13];
+extern uint32_t gPaintProfN[13];
 extern uint32_t gPaintSurfaceStat[4]; // surface paints, ground below target, tiles culled above target, entries added
 extern bool gPaintProfEnabled;
 #ifdef __amigaos__
@@ -251,9 +252,13 @@ struct PaintProfScope
     unsigned t0 = 0;
     int idx;
     bool active;
-    PaintProfScope(int i)
+    // A scope samples one call in sixteen. `phase` picks WHICH sixteenth: scopes that nest inside one another are
+    // called in lockstep, so with the same phase they would always sample the same call and the outer one would then
+    // be measuring the inner one's clock reads (a read pair costs more than a whole PaintSurface on a PiStorm).
+    // Distinct phases make the samples disjoint, so every scope measures only its own work.
+    PaintProfScope(int i, unsigned phase = 0)
         : idx(i)
-        , active(gPaintProfEnabled && ((gPaintProfN[i]++ * 2654435761u) >> 28) == 0)
+        , active(gPaintProfEnabled && ((gPaintProfN[i]++ * 2654435761u) >> 28) == phase)
     {
         if (active)
             t0 = amiga_ticks_us();
@@ -271,8 +276,10 @@ struct PaintProfScope
     }
 };
     #define PAINT_PROF_SCOPE(idx) PaintProfScope _paintProf(idx)
+    #define PAINT_PROF_SCOPE_PHASE(idx, phase) PaintProfScope _paintProf##idx(idx, phase)
 #else
     #define PAINT_PROF_SCOPE(idx) ((void)0)
+    #define PAINT_PROF_SCOPE_PHASE(idx, phase) ((void)0)
 #endif
 
 // Highest clearance (in z units = pixels) of any tile element in the map, plus whatever the tile walk has seen

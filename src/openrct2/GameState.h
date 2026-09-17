@@ -65,7 +65,12 @@ namespace OpenRCT2
         EntityRegistry entities;
 
         // Ride storage for all the rides in the park, rides with RideId::Null are considered free.
+#ifdef __amigaos__
+        // Chunked: see RideStore in ride/Ride.h. Same indexing, a fraction of the memory.
+        RideStore rides{};
+#else
         std::array<Ride, Limits::kMaxRidesInPark> rides{};
+#endif
         size_t ridesEndOfUsedRange{};
         RideRating::UpdateStates rideRatingUpdateStates;
         std::vector<TileElement> tileElements;

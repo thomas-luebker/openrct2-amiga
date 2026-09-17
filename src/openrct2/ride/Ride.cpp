@@ -168,6 +168,63 @@ namespace OpenRCT2
     static void RideMusicUpdate(Ride& ride);
     static void RideShopConnected(const Ride& ride);
 
+#ifdef __amigaos__
+    Ride& RideStore::nullRide()
+    {
+        // One shared slot handed out for every chunk that does not exist. It is never written: the scans
+        // that reach it only read id and type, and both say "nothing here".
+        static Ride ride = [] {
+            Ride r{};
+            r.id = RideId::GetNull();
+            r.type = kRideTypeNull;
+            return r;
+        }();
+        return ride;
+    }
+
+    Ride* RideStore::allocate(size_t index)
+    {
+        if (index >= size())
+        {
+            return nullptr;
+        }
+        Ride*& chunk = _chunks[index >> kChunkShift];
+        if (chunk == nullptr)
+        {
+            chunk = new (std::nothrow) Ride[kChunkSlots];
+            if (chunk == nullptr)
+            {
+                return nullptr;
+            }
+            // A default-constructed Ride has id 0, not null, which every "is this slot free" scan would
+            // read as an existing ride. Mark the whole chunk empty before anyone can see it.
+            for (size_t i = 0; i < kChunkSlots; i++)
+            {
+                chunk[i].id = RideId::GetNull();
+                chunk[i].type = kRideTypeNull;
+            }
+        }
+        return &chunk[index & kChunkMask];
+    }
+
+    void RideStore::reset()
+    {
+        for (auto*& chunk : _chunks)
+        {
+            delete[] chunk;
+            chunk = nullptr;
+        }
+    }
+
+    size_t RideStore::allocatedChunks() const
+    {
+        size_t n = 0;
+        for (auto* chunk : _chunks)
+            n += (chunk != nullptr);
+        return n;
+    }
+#endif
+
     RideId GetNextFreeRideId()
     {
         auto& gameState = getGameState();
@@ -188,7 +245,15 @@ namespace OpenRCT2
         auto& gameState = getGameState();
         gameState.ridesEndOfUsedRange = std::max<size_t>(idx + 1, gameState.ridesEndOfUsedRange);
 
+#ifdef __amigaos__
+        auto result = gameState.rides.allocate(idx);
+        if (result == nullptr)
+        {
+            return nullptr;
+        }
+#else
         auto result = &gameState.rides[idx];
+#endif
         assert(result->id == RideId::GetNull());
 
         // Initialize the ride to all the defaults.
@@ -658,7 +723,12 @@ namespace OpenRCT2
     void RideInitAll()
     {
         auto& gameState = getGameState();
+#ifdef __amigaos__
+        // Freeing the chunks does what the per-ride reset did, and gives the memory back between parks.
+        gameState.rides.reset();
+#else
         std::for_each(std::begin(gameState.rides), std::end(gameState.rides), RideReset);
+#endif
         gameState.ridesEndOfUsedRange = 0;
     }
 

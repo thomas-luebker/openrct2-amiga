@@ -1067,7 +1067,10 @@ namespace OpenRCT2::PathFinding
                  * necessary checks. */
                 {
                     PathElement* pathElement = tileElement->asPath();
-                    auto& memo = state.thinMemo[(reinterpret_cast<uintptr_t>(pathElement) >> 3) & 255];
+                    // A TileElement is 16 bytes, so shifting by 4 gives one memo slot per element. Shifting
+                    // by 3, as this did, stepped two slots per element and used only the even half of the
+                    // table -- half the memo, and twice the collisions, for the same 2 KB.
+                    auto& memo = state.thinMemo[(reinterpret_cast<uintptr_t>(pathElement) >> 4) & 255];
 #ifdef __amigaos__
                     static const bool noMemo = amiga_env_flag("OPENRCT2_NO_THINMEMO") != 0; // parity experiments
 #else

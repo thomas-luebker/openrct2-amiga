@@ -120,10 +120,63 @@ namespace OpenRCT2
         return String::StringFromHex(raw);
     }
 
+#ifdef __amigaos__
+    EntityRegistry::~EntityRegistry()
+    {
+        releaseEntityChunks();
+    }
+
+    void EntityRegistry::releaseEntityChunks()
+    {
+        for (auto*& chunk : _entityChunks)
+        {
+            delete[] chunk;
+            chunk = nullptr;
+        }
+    }
+
+    // Allocates the chunk this id lives in if it does not exist yet. Only the two creation paths call this;
+    // every read goes through tryGetEntity and gets nullptr for an id nobody has created.
+    Entity_t* EntityRegistry::ensureChunkSlot(uint32_t idx)
+    {
+        if (idx >= kMaxEntities)
+        {
+            return nullptr;
+        }
+        const uint32_t chunkIndex = idx >> kEntityChunkShift;
+        Entity_t*& chunk = _entityChunks[chunkIndex];
+        if (chunk == nullptr)
+        {
+            chunk = new (std::nothrow) Entity_t[kEntityChunkSlots];
+            if (chunk == nullptr)
+            {
+                return nullptr;
+            }
+            // A slot's id is its position, as it was in the flat array, and an unused slot reads as null.
+            const uint32_t base = chunkIndex << kEntityChunkShift;
+            for (uint32_t i = 0; i < kEntityChunkSlots; i++)
+            {
+                chunk[i].base.type = EntityType::null;
+                chunk[i].base.id = EntityId::FromUnderlying(base + i);
+            }
+        }
+        return &chunk[idx & kEntityChunkMask];
+    }
+#endif
+
     EntityBase* EntityRegistry::tryGetEntity(EntityId entityIndex)
     {
         const auto idx = entityIndex.ToUnderlying();
-        return idx >= kMaxEntities ? nullptr : &entities[idx].base;
+        if (idx >= kMaxEntities)
+        {
+            return nullptr;
+        }
+#ifdef __amigaos__
+        Entity_t* chunk = _entityChunks[idx >> kEntityChunkShift];
+        return chunk == nullptr ? nullptr : &chunk[idx & kEntityChunkMask].base;
+#else
+        return &entities[idx].base;
+#endif
     }
 
     EntityBase* EntityRegistry::getEntity(EntityId entityIndex)
@@ -217,6 +270,15 @@ namespace OpenRCT2
             freeEntity(*spr);
         }
 
+#ifdef __amigaos__
+        // Hand every chunk back rather than clearing it: loading a second park should not keep the first
+        // park's slots alive. ensureChunkSlot rebuilds what the new park needs, and a fresh chunk already
+        // reads as "null type, id = position", which is what the loop below sets on other targets.
+        releaseEntityChunks();
+        std::fill(std::begin(_entityFlashingList), std::end(_entityFlashingList), false);
+        RideUse::GetHistory().Clear();
+        RideUse::GetTypeHistory().Clear();
+#else
         std::fill(std::begin(entities), std::end(entities), Entity_t());
         RideUse::GetHistory().Clear();
         RideUse::GetTypeHistory().Clear();
@@ -232,6 +294,7 @@ namespace OpenRCT2
 
             _entityFlashingList[i] = false;
         }
+#endif
         resetEntityLists();
         resetFreeIds();
         resetEntitySpatialIndices();
@@ -478,7 +541,12 @@ namespace OpenRCT2
             }
         }
 
+#ifdef __amigaos__
+        auto* slot = ensureChunkSlot(_freeIdList.back().ToUnderlying());
+        auto* entity = slot == nullptr ? nullptr : &slot->base;
+#else
         auto* entity = getEntity(_freeIdList.back());
+#endif
         if (entity == nullptr)
         {
             return nullptr;
@@ -498,7 +566,12 @@ namespace OpenRCT2
             return nullptr;
         }
 
+#ifdef __amigaos__
+        auto* slot = ensureChunkSlot(index.ToUnderlying());
+        auto* entity = slot == nullptr ? nullptr : &slot->base;
+#else
         auto* entity = getEntity(index);
+#endif
         if (entity == nullptr)
         {
             return nullptr;

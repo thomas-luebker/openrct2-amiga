@@ -994,6 +994,8 @@ void PaintSurface(PaintSession& session, uint8_t direction, uint16_t height, con
     else
     {
 #endif
+    {
+    PAINT_PROF_SCOPE_PHASE(10, 1);
     for (std::size_t i = 0; i < std::size(kNeighbouringTileCoordOffsets); i++)
     {
         const CoordsXY& offset = kNeighbouringTileCoordOffsets[i][rotation];
@@ -1026,6 +1028,7 @@ void PaintSurface(PaintSession& session, uint8_t direction, uint16_t height, con
         descriptor.corner_heights.bottom = baseHeight + ch.bottom;
         descriptor.corner_heights.left = baseHeight + ch.left;
     }
+    }
 
     if (PaintShouldShowHeightMarkers(session, VIEWPORT_FLAG_LAND_HEIGHTS))
     {
@@ -1054,6 +1057,7 @@ void PaintSurface(PaintSession& session, uint8_t direction, uint16_t height, con
     }
     else
     {
+        PAINT_PROF_SCOPE_PHASE(12, 3);
         const bool showGridlines = (session.ViewFlags & VIEWPORT_FLAG_GRIDLINES);
 
         assert(surfaceShape < std::size(Byte97B444));
@@ -1233,6 +1237,8 @@ void PaintSurface(PaintSession& session, uint8_t direction, uint16_t height, con
         }
     }
 
+    {
+    PAINT_PROF_SCOPE_PHASE(11, 2);
     if (zoomLevel <= ZoomLevel{ 0 } && has_surface && !(session.ViewFlags & VIEWPORT_FLAG_UNDERGROUND_INSIDE)
         && !(session.ViewFlags & VIEWPORT_FLAG_HIDE_BASE) && Config::Get().general.landscapeSmoothing)
     {
@@ -1260,6 +1266,7 @@ void PaintSurface(PaintSession& session, uint8_t direction, uint16_t height, con
             session, EDGE_BOTTOMLEFT, height, edgeObject, selfDescriptor, tileDescriptors[0], false);
         ViewportSurfaceDrawTileSideBottom(
             session, EDGE_BOTTOMRIGHT, height, edgeObject, selfDescriptor, tileDescriptors[1], false);
+    }
     }
 
     const uint16_t waterHeight = tileElement.getWaterHeight();

@@ -35,8 +35,8 @@
 #include <algorithm>
 #include <array>
 
-uint32_t gPaintProfUs[10] = {};
-uint32_t gPaintProfN[10] = {};
+uint32_t gPaintProfUs[13] = {};
+uint32_t gPaintProfN[13] = {};
 uint32_t gPaintSurfaceStat[4] = {};
 bool gPaintProfEnabled = false;
 

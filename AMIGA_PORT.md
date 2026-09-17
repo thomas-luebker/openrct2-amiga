@@ -28,9 +28,14 @@ Not done: the optional Ogg music packs, networking, scripting. Cursor shapes
 since test17+. The hardware-FPU variant runs on a real 68060 and is no faster,
 because the hot paths avoid floating point.
 
-Memory, measured with a normal park loaded: about 165 MB actually in use, with
-the allocator holding about 220 MB from the system. A park with 2,000 guests
-reaches roughly 240 MB. 512 MB of Fast RAM is comfortable.
+Memory, measured: about 105 MB in use with a normal park loaded (160 MB held
+from the system), and 93 MB with Heide Park and 2,000 guests (137 MB held). The
+guests are not the expensive part — the loaded object graphics are, at 30-50 MB
+depending on how many objects the park uses. 256 MB of Fast RAM is comfortable,
+192 MB is enough. The two big fixed arrays that used to dominate this figure,
+the entity slots and the ride array, are allocated in chunks as the park needs
+them: a park with 2,000 guests and 60 rides pays 880 KB and 930 KB of a
+theoretical 22.5 MB and 14.5 MB.
 
 ## How the port is structured
 

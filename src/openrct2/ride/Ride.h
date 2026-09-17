@@ -902,4 +902,63 @@ namespace OpenRCT2
     void DefaultMusicUpdate(Ride& ride);
 
     RideMode RideModeGetBlockSectionedCounterpart(RideMode originalMode);
+
+#ifdef __amigaos__
+    // A Ride is about 14.9 KB, 13.3 KB of which is its 255-entry station array, and the game state holds
+    // kMaxRidesInPark of them whether the park has three rides or two hundred: 14.5 MB of a 68k's memory
+    // that is almost entirely never written. Hold them in chunks of 16 rides (238 KB), allocated the first
+    // time a ride is created in that chunk, so a park with 60 rides pays under a megabyte.
+    //
+    // Reading a slot whose chunk does not exist gives a shared ride that is permanently null: every scan
+    // over the array only asks whether the slot is free, and for an unallocated chunk the answer is yes.
+    // Only allocate() creates a chunk, and only the ride-allocation path calls it. Chunks never move, so a
+    // Ride* stays valid for exactly as long as it did with the flat array.
+    class RideStore
+    {
+    public:
+        static constexpr size_t kChunkShift = 4;
+        static constexpr size_t kChunkSlots = size_t{ 1 } << kChunkShift;
+        static constexpr size_t kChunkMask = kChunkSlots - 1;
+        static constexpr size_t kChunkCount = (Limits::kMaxRidesInPark + kChunkSlots - 1) / kChunkSlots;
+
+        RideStore() = default;
+        ~RideStore()
+        {
+            reset();
+        }
+        RideStore(const RideStore&) = delete;
+        RideStore& operator=(const RideStore&) = delete;
+
+        static constexpr size_t size()
+        {
+            return Limits::kMaxRidesInPark;
+        }
+
+        Ride& operator[](size_t index)
+        {
+            Ride* chunk = index < size() ? _chunks[index >> kChunkShift] : nullptr;
+            return chunk == nullptr ? nullRide() : chunk[index & kChunkMask];
+        }
+
+        const Ride& operator[](size_t index) const
+        {
+            const Ride* chunk = index < size() ? _chunks[index >> kChunkShift] : nullptr;
+            return chunk == nullptr ? nullRide() : chunk[index & kChunkMask];
+        }
+
+        // Makes the slot real. Returns nullptr only when the allocation fails.
+        Ride* allocate(size_t index);
+
+        // Hands every chunk back to the allocator. Destroying the rides is what clears their names and
+        // measurements, which is what the flat array's reset loop did field by field.
+        void reset();
+
+        size_t allocatedChunks() const;
+
+    private:
+        static Ride& nullRide();
+
+        Ride* _chunks[kChunkCount]{};
+    };
+#endif
 } // namespace OpenRCT2
