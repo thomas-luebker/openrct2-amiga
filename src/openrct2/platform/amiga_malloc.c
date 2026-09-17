@@ -34,15 +34,43 @@
 /* Heap corruption detection: FOOTERS stores a check word behind every chunk and fails loudly instead of
  * looping forever on a damaged bin; the failure is written to the trace file before the process ends. */
 #define FOOTERS 1
+/* OPENRCT2_HEAP_DEBUG=1 at build time turns on dlmalloc's own consistency walk at every malloc and free.
+ * It is far too slow to ship, but it turns "the heap was damaged some time before shutdown" into "the heap
+ * was damaged before this allocation", which is the only way to find a stray write without a debugger. */
+#ifdef OPENRCT2_HEAP_DEBUG
+    #define DEBUG 1
+#endif
 #define PROCEED_ON_ERROR 0
+#include <stdio.h>
 void amiga_trace(const char* line);
 static void amiga_heap_abort(void)
 {
     amiga_trace("HEAP: dlmalloc detected a corrupted chunk (FOOTERS) -- aborting");
     abort();
 }
+/* Which chunk, so the damage can be traced back to its neighbour rather than only reported. */
+static void amiga_heap_usage_error(void* p)
+{
+    /* The first bytes of the payload usually say what the block was: a vtable pointer names a class, and
+     * printable bytes name a string. Without a debugger this is how the victim gets identified. */
+    char b[200];
+    const unsigned char* q = (const unsigned char*)p;
+    char txt[17];
+    int i;
+    for (i = 0; i < 16; i++)
+        txt[i] = (q[i] >= 32 && q[i] < 127) ? (char)q[i] : '.';
+    txt[16] = 0;
+    snprintf(
+        b, sizeof(b), "HEAP: damaged chunk at %p  first words %08lx %08lx %08lx %08lx  \"%s\"", p,
+        (unsigned long)((const unsigned long*)p)[0], (unsigned long)((const unsigned long*)p)[1],
+        (unsigned long)((const unsigned long*)p)[2], (unsigned long)((const unsigned long*)p)[3], txt);
+    amiga_trace(b);
+    amiga_heap_abort();
+}
+/* Checks the whole heap on demand: called from amiga_heap_verify() so a run can narrow down when the
+ * damage appears instead of only learning that it happened. */
 #define ABORT amiga_heap_abort()
-#define USAGE_ERROR_ACTION(m, p) amiga_heap_abort()
+#define USAGE_ERROR_ACTION(m, p) amiga_heap_usage_error(p)
 #define CORRUPTION_ERROR_ACTION(m) amiga_heap_abort()
 #define USE_DL_PREFIX 1
 

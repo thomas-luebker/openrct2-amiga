@@ -24,6 +24,7 @@
 #include "../interface/Viewport.h"
 #include "../peep/RideUseSystem.h"
 #include "../profiling/Profiling.h"
+#include "../ride/Ride.h"
 #include "../ride/RideManager.hpp"
 #include "../ride/Vehicle.h"
 #include "../world/Map.h"
@@ -179,18 +180,22 @@ namespace OpenRCT2
             if (!_done && amiga_trace_enabled())                                                                               \
             {                                                                                                                  \
                 _done = true;                                                                                                  \
-                char _b[224];                                                                                                  \
+                char _b[320];                                                                                                  \
                 std::snprintf(                                                                                                 \
                     _b, sizeof(_b),                                                                                            \
                     "mem: entity slot %u B x %u = %u KB; largest type: guest %u staff %u vehicle %u litter %u balloon %u "      \
-                    "money %u steam %u; spatial index %u buckets x %u B = %u KB",                                              \
+                    "money %u steam %u; spatial index %u buckets x %u B = %u KB; ride %u B x %u = %u KB (station %u B x %u = %u B/ride)",                                              \
                     static_cast<unsigned>(sizeof(Entity_t)), static_cast<unsigned>(kMaxEntities),                              \
                     static_cast<unsigned>(sizeof(Entity_t) * kMaxEntities / 1024), static_cast<unsigned>(sizeof(Guest)),       \
                     static_cast<unsigned>(sizeof(Staff)), static_cast<unsigned>(sizeof(Vehicle)),                              \
                     static_cast<unsigned>(sizeof(Litter)), static_cast<unsigned>(sizeof(Balloon)),                             \
                     static_cast<unsigned>(sizeof(MoneyEffect)), static_cast<unsigned>(sizeof(SteamParticle)),                  \
                     static_cast<unsigned>(gEntitySpatialIndex.size()), static_cast<unsigned>(sizeof(std::vector<EntityId>)),   \
-                    static_cast<unsigned>(gEntitySpatialIndex.size() * sizeof(std::vector<EntityId>) / 1024));                          \
+                    static_cast<unsigned>(gEntitySpatialIndex.size() * sizeof(std::vector<EntityId>) / 1024),                 \
+                    static_cast<unsigned>(sizeof(Ride)), static_cast<unsigned>(OpenRCT2::Limits::kMaxRidesInPark),     \
+                    static_cast<unsigned>(sizeof(Ride) * OpenRCT2::Limits::kMaxRidesInPark / 1024),                       \
+                    static_cast<unsigned>(sizeof(RideStation)), static_cast<unsigned>(OpenRCT2::Limits::kMaxStationsPerRide), \
+                    static_cast<unsigned>(sizeof(RideStation) * OpenRCT2::Limits::kMaxStationsPerRide));                          \
                 amiga_trace(_b);                                                                                               \
             }                                                                                                                  \
         } while (0)

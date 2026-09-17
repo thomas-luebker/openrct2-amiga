@@ -1537,6 +1537,9 @@ namespace OpenRCT2
 
                     // Stations
                     cs.readWrite(ride.numStations);
+                    // The station array is bounded and can be smaller than the file's (see Limits.h), so the
+                    // count must not outrun it: everything that walks stations by count would run off the end.
+                    ride.numStations = std::min<uint8_t>(ride.numStations, Limits::kMaxStationsPerRide);
                     cs.readWriteArray(ride.getStations(), [&cs](RideStation& station) {
                         cs.readWrite(station.start);
                         cs.readWrite(station.height);

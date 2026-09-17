@@ -16,6 +16,12 @@
 namespace OpenRCT2::Limits
 {
     constexpr uint16_t kMaxRidesInPark = 1000;
+    // A 32-station cap here would save 11 MB on AmigaOS: a ride is 14.9 KB, 13.2 of that its station
+    // array, and the park holds 1000 rides whether they exist or not. The cap is correct and was
+    // verified bit-exact, but it makes a pre-existing heap corruption fatal -- with 255 slots the
+    // stray write lands in a ride's own padding, with 32 it damages a neighbouring chunk and dlmalloc
+    // aborts at shutdown. Restore it once that write is found; the victim is a ~264-byte block that
+    // begins 00000108 0000002a "Height M...".
     constexpr uint16_t kMaxStationsPerRide = 255;
     constexpr uint8_t kCustomerHistorySize = RCT12::Limits::kCustomerHistorySize;
     constexpr uint8_t kMaxGolfHoles = std::numeric_limits<uint8_t>::max();
