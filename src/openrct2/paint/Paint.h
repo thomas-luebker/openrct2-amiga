@@ -261,7 +261,13 @@ struct PaintProfScope
     ~PaintProfScope()
     {
         if (active)
-            gPaintProfUs[idx] += amiga_ticks_us() - t0;
+        {
+            // Subtract what the clock read itself costs (20 us on a PiStorm), or these scopes measure
+            // the bus rather than the paint. Nested scopes each pay it once, so each is corrected once.
+            static const unsigned bias = amiga_ticks_bias_us();
+            const unsigned dt = amiga_ticks_us() - t0;
+            gPaintProfUs[idx] += dt > bias ? dt - bias : 0;
+        }
     }
 };
     #define PAINT_PROF_SCOPE(idx) PaintProfScope _paintProf(idx)

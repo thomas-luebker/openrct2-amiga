@@ -250,12 +250,15 @@ namespace OpenRCT2::Ui::Windows
             {
                 char line[128];
                 const auto textWidth = kWindowSize.width - (kPadding * 2);
-                auto amigaCoords = windowPos + ScreenCoordsXY((width / 2) - 1, 222);
-                drawTextWrapped(rt, amigaCoords, textWidth, "AmigaOS 68k port  --  RTG screen, AHI sound", tp);
+                auto amigaCoords = windowPos + ScreenCoordsXY((width / 2) - 1, 218);
+                drawTextWrapped(
+                    rt, amigaCoords, textWidth, "AmigaOS 68k port by Thomas L\u00fcbker, developed with Claude Code", tp);
+                amigaCoords.y += 11;
+                drawTextWrapped(rt, amigaCoords, textWidth, "RTG screen, AHI sound  --  GPLv3, like OpenRCT2 itself", tp);
                 amigaCoords.y += 11;
                 if (amiga_machine_info(line, static_cast<int>(sizeof(line))) > 0)
                     drawTextWrapped(rt, amigaCoords, textWidth, line, tp);
-                restTop = 266;
+                restTop = 273;
             }
 #endif
             auto textCoords = windowPos + ScreenCoordsXY((width / 2) - 1, restTop);
