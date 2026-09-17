@@ -76,19 +76,25 @@ static void amiga_heap_usage_error(void* p)
 
 static void* amiga_mmap(size_t s)
 {
-    /* Off by default since test19: a tester saw garbled text with test17, the first build that returned large
-     * blocks to the system, and the cause is not found yet. OPENRCT2_BIGALLOC=1 enables the path (footprint
-     * ~55 MB lower on the title screen, big transients returned at once); failing here makes dlmalloc fall
-     * back to MORECORE, i.e. the behaviour up to test16. */
+    /* On by default. The sbrk-style heap below can never be trimmed, so without this path every large
+     * transient of a park load -- object decode buffers, file reads, autosave buffers -- raises the
+     * footprint for the rest of the run. Measured on Crazy Castle: 159.7 MB held from the system against
+     * 104.3 MB actually in use with this off, and 105.4 against 104.3 with it on. That 54 MB is the
+     * difference between needing 192 MB and fitting on a 128 MB accelerator.
+     *
+     * It was off from test19 to test25 because a tester saw garbled text on test17, the first build that
+     * returned large blocks to the system. That symptom has been gone since test19 and was not traced to
+     * this switch, so the memory was being paid for nothing. OPENRCT2_NO_BIGALLOC=1 restores the old
+     * behaviour for anyone who needs to bisect it. */
     static int checked = 0, on = 0;
     unsigned long* p;
     if (!checked)
     {
         char buf[8];
         checked = 1;
-        on = GetVar((STRPTR) "OPENRCT2_BIGALLOC", (STRPTR)buf, sizeof buf, 0) > 0;
-        amiga_trace(on ? "heap: OPENRCT2_BIGALLOC set, large blocks come from exec and go back on free"
-                       : "heap: large blocks stay in the heap (set OPENRCT2_BIGALLOC=1 to return them to the system)");
+        on = GetVar((STRPTR) "OPENRCT2_NO_BIGALLOC", (STRPTR)buf, sizeof buf, 0) <= 0;
+        amiga_trace(on ? "heap: large blocks come from exec and go back to it on free"
+                       : "heap: OPENRCT2_NO_BIGALLOC set, large blocks stay in the heap (pre-test26 behaviour)");
     }
     if (!on)
         return (void*)~(size_t)0; /* MFAIL */
