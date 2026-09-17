@@ -74,6 +74,20 @@ static void amiga_heap_usage_error(void* p)
 #define CORRUPTION_ERROR_ACTION(m) amiga_heap_abort()
 #define USE_DL_PREFIX 1
 
+/* Every block amiga_mmap hands out, so the exit cleanup can give them back. AmigaOS does not reclaim a
+ * program's AllocMem when it exits, so a large block still live at exit would be lost to the system until
+ * the next reboot -- which is exactly what happened on the A4000 the first time this path was made the
+ * default: 132 MB gone with the game not running. The header is the same 16 bytes the size alone used to
+ * take, so the payload alignment is unchanged. */
+struct amiga_big
+{
+    unsigned long size; /* what FreeMem needs, header included */
+    struct amiga_big* next;
+    struct amiga_big* prev;
+    unsigned long pad;
+};
+static struct amiga_big* g_bigs = NULL;
+
 static void* amiga_mmap(size_t s)
 {
     /* On by default. The sbrk-style heap below can never be trimmed, so without this path every large
@@ -87,7 +101,7 @@ static void* amiga_mmap(size_t s)
      * this switch, so the memory was being paid for nothing. OPENRCT2_NO_BIGALLOC=1 restores the old
      * behaviour for anyone who needs to bisect it. */
     static int checked = 0, on = 0;
-    unsigned long* p;
+    struct amiga_big* b;
     if (!checked)
     {
         char buf[8];
@@ -98,18 +112,29 @@ static void* amiga_mmap(size_t s)
     }
     if (!on)
         return (void*)~(size_t)0; /* MFAIL */
-    p = (unsigned long*)AllocMem(s + 16, MEMF_ANY);
-    if (p == NULL)
+    b = (struct amiga_big*)AllocMem(s + sizeof(struct amiga_big), MEMF_ANY);
+    if (b == NULL)
         return (void*)~(size_t)0; /* MFAIL */
-    p[0] = s + 16;
-    return (char*)p + 16;
+    b->size = s + sizeof(struct amiga_big);
+    b->prev = NULL;
+    b->next = g_bigs;
+    if (g_bigs != NULL)
+        g_bigs->prev = b;
+    g_bigs = b;
+    return (char*)b + sizeof(struct amiga_big);
 }
 
 static int amiga_munmap(void* a, size_t s)
 {
-    unsigned long* p = (unsigned long*)((char*)a - 16);
+    struct amiga_big* b = (struct amiga_big*)((char*)a - sizeof(struct amiga_big));
     (void)s;
-    FreeMem(p, p[0]);
+    if (b->prev != NULL)
+        b->prev->next = b->next;
+    else
+        g_bigs = b->next;
+    if (b->next != NULL)
+        b->next->prev = b->prev;
+    FreeMem(b, b->size);
     return 0;
 }
 
@@ -179,11 +204,21 @@ void amiga_malloc_stats(unsigned long* footprint, unsigned long* inUse)
 __attribute__((destructor(101))) static void amiga_malloc_cleanup(void)
 {
     struct amiga_step* s = g_steps;
+    struct amiga_big* b = g_bigs;
     g_steps = NULL;
+    g_bigs = NULL;
     while (s != NULL)
     {
         struct amiga_step* next = s->next;
         FreeMem(s, s->size);
         s = next;
+    }
+    /* Anything still allocated through amiga_mmap: the program is ending, and nothing else will ever
+     * give these back. */
+    while (b != NULL)
+    {
+        struct amiga_big* next = b->next;
+        FreeMem(b, b->size);
+        b = next;
     }
 }
