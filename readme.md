@@ -39,14 +39,37 @@ threads, soft float, big-endian. It is a fork; upstream declined to merge it, so
 Measured on real hardware, not estimated. A "normal park" is a freshly started scenario; the large
 park is a community one with 2,000 guests.
 
-| | A4000, 68060 @ 50 MHz | the same at 100 MHz | A1200 + PiStorm (Emu68) |
+Each park is loaded and the camera is never moved, so all three machines draw the same picture from the
+park's own saved viewpoint; the simulation is checked to be running before a frame is counted. The frame
+cap is 40.
+
+| | emulator (OS 3.2.3) | A1200 + PiStorm (Emu68) | A4000, 68060 @ 100 MHz |
 |---|---|---|---|
-| normal park | 34 fps (the frame cap) | 37–39 fps (the frame cap) | frame cap |
-| large park, quiet view | — | — | 23–25 fps |
-| large park, built-up view | 0.14 fps (raining) | 3–7 fps | ~8 fps |
-| one tick, 4 guests | 29 ms | 14 ms | — |
-| one tick, 2,070 guests | 287 ms | 125–136 ms | 40 ms |
-| loading a scenario | ~4½ minutes | ~2¼ minutes | ~40 s |
+| Crazy Castle, 3 guests | 35–38 fps | 39–40 fps | 36–37 fps |
+| Extreme Heights, 172 guests | 34–39 fps | 38–40 fps | 32–35 fps |
+| Heide Park, 2,085 guests | 15–16 fps | 16–18 fps | 2–3 fps |
+| loading any of them | 26–32 s | 27 s | 161–205 s |
+
+The simulation on its own, measured headless with `openrct2-cli simulate` so no drawing is included, and
+with matching checksums across all three machines:
+
+| ms per tick | emulator | PiStorm | A4000 @ 100 MHz |
+|---|---|---|---|
+| Crazy Castle, 3 guests | 0.42 | 0.40 | 2.52 |
+| Extreme Heights, 172 guests | 2.33 | 1.67 | 17.82 |
+| Heide Park, 2,085 guests | 54.06 | 28.07 | 281.07 |
+| cost per guest per tick | 25.8 µs | 13.3 µs | 134 µs |
+
+A tick has to finish in 25 ms for the game to keep real time, which puts the PiStorm at roughly 1,800
+guests, the emulator at 950 and a 100 MHz 68060 at 180. **Emu68 recompiles 68k code to ARM rather than
+executing it, and is about ten times faster per guest than a real 68060 at twice its stock clock** —
+that gap, not the 68k clock, is what the columns are really comparing.
+
+> Measuring this is easy to get wrong. The wall clock of one `simulate` run is mostly loading objects,
+> so timing a single run measures the loader; the figures above are the slope between two tick counts.
+> A machine's first run on a park also builds the object and scenario indexes and reads 30–60 % high.
+> And a paused game draws at the frame cap while simulating nothing. All three produced confident,
+> wrong answers before the harness in `spike/mini/` was made to rule them out.
 
 ### How many guests will my machine take?
 
@@ -54,11 +77,15 @@ This is the question that decides whether a park stays playable, and it has a st
 because the simulation cost is almost entirely the guests and it scales with how many there are.
 A tick has to fit in about 50 ms to feel alive:
 
-| machine | cost per guest per tick | comfortable up to |
+| machine | cost per guest per tick | keeps real time up to |
 |---|---|---|
-| 68060 at 50 MHz | ~140 µs | **~400 guests** |
-| 68060 at 100 MHz | ~63 µs | **~800 guests** |
-| PiStorm (Emu68) | ~13 µs | **~2,000 guests**, though drawing then becomes the limit |
+| 68060 at 100 MHz | 134 µs | **~180 guests** |
+| emulator (OS 3.2.3) | 25.8 µs | **~950 guests** |
+| PiStorm (Emu68) | 13.3 µs | **~1,800 guests**, though drawing then becomes the limit |
+
+Past that point the game does not stutter, it runs in **slow motion**: the port caps the ticks it will
+attempt per frame, so the picture stays smooth while the park's clock falls behind. A healthy frame rate
+on a crowded park is therefore not on its own proof that the machine is keeping up.
 
 Other things worth knowing:
 
@@ -91,11 +118,11 @@ Other things worth knowing:
 - AmigaOS 3.2 (tested on 3.2.3); an RTG card with a Picasso96 or CyberGraphX driver and an 8-bit
   640×480 mode (AGA/ECS-only machines are not supported).
 - 68040/68060, PiStorm (Emu68) or Vampire/Apollo. A 68020/030 runs it, slowly.
-- **Memory**: about **105 MB in use for a normal park** and **93 MB for Heide Park with 2,000 guests**
-  (a big park is not the expensive case; the loaded object graphics are). The allocator holds more than
-  it is using — 160 MB and 137 MB respectively — so plan for the larger figure. **256 MB of Fast RAM
-  is comfortable and 192 MB is enough**; autosave briefly wants more, so set `autosave = 5` (never) in
-  `user/config.ini` if memory is tight.
+- **Memory**: about **105 MB for a normal park** and **94 MB for Heide Park with 2,000 guests** —
+  both measured as memory held from the system, which is now within a megabyte of what the game is
+  actually using. A big park is not the expensive case; the object graphics a park pulls in are.
+  **128 MB of Fast RAM is enough**, which is the ceiling on most classic accelerators; autosave
+  briefly wants more, so set `autosave = 5` (never) in `user/config.ini` if memory is tight.
 - **Disk**: about 80 MB for the game, plus your RCT2 data (~150 MB, or ~630 MB with all the music).
 - AHI for sound (optional; silent without it).
 - The data files of the original RollerCoaster Tycoon 2 (GOG, Steam or CD). Not included.

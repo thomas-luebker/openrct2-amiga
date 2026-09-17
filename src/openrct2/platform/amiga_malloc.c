@@ -74,36 +74,67 @@ static void amiga_heap_usage_error(void* p)
 #define CORRUPTION_ERROR_ACTION(m) amiga_heap_abort()
 #define USE_DL_PREFIX 1
 
+/* Every block amiga_mmap hands out, so the exit cleanup can give them back. AmigaOS does not reclaim a
+ * program's AllocMem when it exits, so a large block still live at exit would be lost to the system until
+ * the next reboot -- which is exactly what happened on the A4000 the first time this path was made the
+ * default: 132 MB gone with the game not running. The header is the same 16 bytes the size alone used to
+ * take, so the payload alignment is unchanged. */
+struct amiga_big
+{
+    unsigned long size; /* what FreeMem needs, header included */
+    struct amiga_big* next;
+    struct amiga_big* prev;
+    unsigned long pad;
+};
+static struct amiga_big* g_bigs = NULL;
+
 static void* amiga_mmap(size_t s)
 {
-    /* Off by default since test19: a tester saw garbled text with test17, the first build that returned large
-     * blocks to the system, and the cause is not found yet. OPENRCT2_BIGALLOC=1 enables the path (footprint
-     * ~55 MB lower on the title screen, big transients returned at once); failing here makes dlmalloc fall
-     * back to MORECORE, i.e. the behaviour up to test16. */
+    /* On by default. The sbrk-style heap below can never be trimmed, so without this path every large
+     * transient of a park load -- object decode buffers, file reads, autosave buffers -- raises the
+     * footprint for the rest of the run. Measured on Crazy Castle: 159.7 MB held from the system against
+     * 104.3 MB actually in use with this off, and 105.4 against 104.3 with it on. That 54 MB is the
+     * difference between needing 192 MB and fitting on a 128 MB accelerator.
+     *
+     * It was off from test19 to test25 because a tester saw garbled text on test17, the first build that
+     * returned large blocks to the system. That symptom has been gone since test19 and was not traced to
+     * this switch, so the memory was being paid for nothing. OPENRCT2_NO_BIGALLOC=1 restores the old
+     * behaviour for anyone who needs to bisect it. */
     static int checked = 0, on = 0;
-    unsigned long* p;
+    struct amiga_big* b;
     if (!checked)
     {
         char buf[8];
         checked = 1;
-        on = GetVar((STRPTR) "OPENRCT2_BIGALLOC", (STRPTR)buf, sizeof buf, 0) > 0;
-        amiga_trace(on ? "heap: OPENRCT2_BIGALLOC set, large blocks come from exec and go back on free"
-                       : "heap: large blocks stay in the heap (set OPENRCT2_BIGALLOC=1 to return them to the system)");
+        on = GetVar((STRPTR) "OPENRCT2_NO_BIGALLOC", (STRPTR)buf, sizeof buf, 0) <= 0;
+        amiga_trace(on ? "heap: large blocks come from exec and go back to it on free"
+                       : "heap: OPENRCT2_NO_BIGALLOC set, large blocks stay in the heap (pre-test26 behaviour)");
     }
     if (!on)
         return (void*)~(size_t)0; /* MFAIL */
-    p = (unsigned long*)AllocMem(s + 16, MEMF_ANY);
-    if (p == NULL)
+    b = (struct amiga_big*)AllocMem(s + sizeof(struct amiga_big), MEMF_ANY);
+    if (b == NULL)
         return (void*)~(size_t)0; /* MFAIL */
-    p[0] = s + 16;
-    return (char*)p + 16;
+    b->size = s + sizeof(struct amiga_big);
+    b->prev = NULL;
+    b->next = g_bigs;
+    if (g_bigs != NULL)
+        g_bigs->prev = b;
+    g_bigs = b;
+    return (char*)b + sizeof(struct amiga_big);
 }
 
 static int amiga_munmap(void* a, size_t s)
 {
-    unsigned long* p = (unsigned long*)((char*)a - 16);
+    struct amiga_big* b = (struct amiga_big*)((char*)a - sizeof(struct amiga_big));
     (void)s;
-    FreeMem(p, p[0]);
+    if (b->prev != NULL)
+        b->prev->next = b->next;
+    else
+        g_bigs = b->next;
+    if (b->next != NULL)
+        b->next->prev = b->prev;
+    FreeMem(b, b->size);
     return 0;
 }
 
@@ -173,11 +204,21 @@ void amiga_malloc_stats(unsigned long* footprint, unsigned long* inUse)
 __attribute__((destructor(101))) static void amiga_malloc_cleanup(void)
 {
     struct amiga_step* s = g_steps;
+    struct amiga_big* b = g_bigs;
     g_steps = NULL;
+    g_bigs = NULL;
     while (s != NULL)
     {
         struct amiga_step* next = s->next;
         FreeMem(s, s->size);
         s = next;
+    }
+    /* Anything still allocated through amiga_mmap: the program is ending, and nothing else will ever
+     * give these back. */
+    while (b != NULL)
+    {
+        struct amiga_big* next = b->next;
+        FreeMem(b, b->size);
+        b = next;
     }
 }
