@@ -17,6 +17,7 @@
     #include <vector>
 
 extern "C" void amiga_trace(const char*);
+extern "C" int amiga_trace_enabled(void);
 
 namespace
 {
@@ -248,8 +249,28 @@ void SDL_amiga_AudioPump(void)
         g_inPump = false;
         return;
     }
+    // While tracing, time the mixing: it runs inside SDL_PollEvent, so the frame profile books it as "events".
+    const bool timed = amiga_trace_enabled() != 0;
+    const unsigned mix0 = timed ? SDL_GetTicks() : 0;
     amiga_audio_pump(fillFromCallback, nullptr);
     g_inPump = false;
+    if (timed)
+    {
+        static unsigned mixMs = 0, mixCalls = 0, mixFrom = 0;
+        mixMs += SDL_GetTicks() - mix0;
+        mixCalls++;
+        if (mixFrom == 0)
+            mixFrom = mix0;
+        if (mix0 - mixFrom >= 10000)
+        {
+            char line[112];
+            std::snprintf(
+                line, sizeof line, "audio: mixing %u ms of the last %u ms, %u pumps", mixMs, mix0 - mixFrom, mixCalls);
+            amiga_trace(line);
+            mixMs = mixCalls = 0;
+            mixFrom = mix0;
+        }
+    }
     // Trace-gated health line every ~1000 buffers (~90 s): buffers written and underruns (all buffers drained).
     static unsigned lastReport = 0;
     unsigned written, underruns;
