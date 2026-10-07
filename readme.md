@@ -33,6 +33,17 @@ threads, soft float, big-endian. It is a fork; upstream declined to merge it, so
   Ogg music packs are not supported (no Vorbis decoder in this build).
 - Not yet: networking, scripting. Mouse cursor shapes and the text clipboard work; the hardware-FPU
   build runs but is no faster (see below).
+- **Current build: [test26](https://github.com/thomas-luebker/openrct2-amiga/releases/tag/test26)**
+  (September 2026). The port is in maintenance: no new test build is planned until a bug report
+  asks for one. Please report problems as a
+  [GitHub issue](https://github.com/thomas-luebker/openrct2-amiga/issues), with your machine, RAM,
+  OS version and the trace the [tester guide](distribution/amiga/TESTER-GUIDE.md) describes.
+
+Known issues:
+
+- On Heide Park (an RCT1 `.sc4` scenario) the cash field in the toolbar sometimes flickers to a
+  nonsense value between correct ones.
+- If text comes out garbled, start with `OPENRCT2_NO_BIGALLOC=1` set and say so in the report.
 
 ## Performance
 
