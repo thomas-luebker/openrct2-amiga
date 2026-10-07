@@ -61,6 +61,10 @@ is the oracle: `openrct2-cli simulate <park> <ticks>` prints the entity
 checksum on both hosts. Use a `.park` file (or an `.sc4`/`.sc6` at tick 0);
 scenario ticks after the first are not deterministic even natively.
 
+Before a build goes out to testers, run the release gate in
+[`tools/`](tools/README.md): parity, the release check, the soak and the
+leak check, all on the exact binary that ships.
+
 Debug switches (environment variables on the Amiga):
 
 - `OPENRCT2_TRACE=<file>`: opt-in stage trace (start-up, load, frame-rate,
